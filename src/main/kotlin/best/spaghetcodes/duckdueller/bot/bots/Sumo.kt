@@ -115,7 +115,7 @@ class Sumo : BotBase("/play duels_sumo_duel") {
             return
         }
 
-        opponentOffEdge = WorldUtils.entityOffEdge(opponent()!!) || (opponentOffEdge && EntityUtils.getDistanceNoY(mc.thePlayer, opponent()!!) > 6)
+        opponentOffEdge = WorldUtils.entityOffEdge(opponent()!!) || (opponentOffEdge && EntityUtils.getDistanceNoY(mc.thePlayer, opponent()!!) > 9) // fixed the bot crashing basically :sob:
 
         if (!opponentOffEdge && StateManager.state == StateManager.States.PLAYING) {
             if (!mc.thePlayer.isSprinting) {
