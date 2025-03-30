@@ -29,6 +29,7 @@ class Sumo : BotBase("/play duels_sumo_duel") {
     private var tapping = false
     private var opponentOffEdge = false
     private var tap50 = false
+    private var canDistanceJump = true
 
     override fun onJoinGame() {
         if (DuckDueller.config?.lobbyMovement == true) {
@@ -38,6 +39,7 @@ class Sumo : BotBase("/play duels_sumo_duel") {
 
     override fun beforeStart() {
         LobbyMovement.stop()
+        canDistanceJump = true
     }
 
     override fun beforeLeave() {
@@ -48,18 +50,24 @@ class Sumo : BotBase("/play duels_sumo_duel") {
         LobbyMovement.stop()
         Movement.startSprinting()
         Movement.startForward()
+        Movement.clearLeftRight()
+        Combat.stopRandomStrafe()
+        canDistanceJump = true
+        tapping = false
+        opponentOffEdge = false
+        tap50 = false
     }
 
     override fun onGameEnd() {
         TimeUtils.setTimeout(fun () {
-            Movement.clearAll()
             Mouse.stopLeftAC()
             Combat.stopRandomStrafe()
+            Mouse.stopTracking()
         }, RandomUtils.randomIntInRange(100, 300))
     }
 
     override fun onAttack() {
-        if (!tapping) {
+        if (!tapping && StateManager.state == StateManager.States.PLAYING) {
             tapping = true
             val dur = if (tap50) 50 else 100
             ChatUtils.info("W-Tap $dur")
@@ -67,42 +75,56 @@ class Sumo : BotBase("/play duels_sumo_duel") {
             tap50 = !tap50
             TimeUtils.setTimeout(fun () {
                 tapping = false
-            }, dur)
+            }, (dur.toLong() + 15).toInt())
         }
     }
 
     override fun onFoundOpponent() {
-        Mouse.startTracking()
+        if (StateManager.state == StateManager.States.PLAYING) {
+            Mouse.startTracking()
+        }
     }
 
     fun leftEdge(distance: Float): Boolean {
-        return (WorldUtils.airOnLeft(mc.thePlayer, distance))
+        if (mc.thePlayer == null) return false
+        return WorldUtils.airOnLeft(mc.thePlayer, distance)
     }
 
     fun rightEdge(distance: Float): Boolean {
-        return (WorldUtils.airOnRight(mc.thePlayer, distance))
+        if (mc.thePlayer == null) return false
+        return WorldUtils.airOnRight(mc.thePlayer, distance)
     }
 
-    fun nearEdge(distance: Float): Boolean { // doesnt check front
+    fun nearEdge(distance: Float): Boolean {
+        if (mc.thePlayer == null) return false
         return (rightEdge(distance) || leftEdge(distance) || WorldUtils.airInBack(mc.thePlayer, distance))
     }
 
     fun opponentNearEdge(distance: Float): Boolean {
-        return (WorldUtils.airInBack(opponent()!!, distance) || WorldUtils.airOnLeft(opponent()!!, distance) || WorldUtils.airOnRight(
-            opponent()!!, distance))
+        if (opponent() == null) return false
+        return (WorldUtils.airInBack(opponent()!!, distance) || WorldUtils.airOnLeft(opponent()!!, distance) || WorldUtils.airOnRight(opponent()!!, distance))
     }
 
     override fun onTick() {
-        opponentOffEdge = opponent() != null && mc.thePlayer != null &&
-                (WorldUtils.entityOffEdge(opponent()!!) || opponentOffEdge && EntityUtils.getDistanceNoY(mc.thePlayer, opponent()!!) > 6)
-        if (!opponentOffEdge && mc.thePlayer != null && opponent() != null) {
+        if (mc.thePlayer == null || opponent() == null) {
+            val isMoving = Movement.forward() || Movement.backward() || Movement.left() || Movement.right()
+            if (isMoving) {
+                Movement.clearAll()
+                Combat.stopRandomStrafe()
+            }
+            return
+        }
+
+        opponentOffEdge = WorldUtils.entityOffEdge(opponent()!!) || (opponentOffEdge && EntityUtils.getDistanceNoY(mc.thePlayer, opponent()!!) > 6)
+
+        if (!opponentOffEdge && StateManager.state == StateManager.States.PLAYING) {
             if (!mc.thePlayer.isSprinting) {
                 Movement.startSprinting()
             }
 
             Mouse.startTracking()
 
-            val distance = EntityUtils.getDistanceNoY(mc.thePlayer, opponent())
+            val distance = EntityUtils.getDistanceNoY(mc.thePlayer, opponent()!!)
 
             if (distance > (DuckDueller.config?.maxDistanceAttack ?: 5)) {
                 Mouse.stopLeftAC()
@@ -110,81 +132,64 @@ class Sumo : BotBase("/play duels_sumo_duel") {
                 Mouse.startLeftAC()
             }
 
-            val movePriority = arrayListOf(0, 0)
-            var clear = false
-            var randomStrafe = false
+            Combat.stopRandomStrafe()
 
-            if (distance > 3) {
-                val le = WorldUtils.distanceToLeftEdge(mc.thePlayer)
-                val re = WorldUtils.distanceToRightEdge(mc.thePlayer)
-                val diff = abs(abs(le) - abs(re))
-                if (diff > 1) {
-                    if (le < re) {
-                        movePriority[1] += 5
-                    } else if (re < le) {
-                        movePriority[0] += 5
-                    } else {
-                        randomStrafe = true
-                    }
-                } else {
-                    randomStrafe = true
-                }
-            } else {
-                clear = true
-            }
-
-            if (combo >= 2) {
-                clear = true
-            }
-
-            if (combo >= 3 && distance >= 3.2 && mc.thePlayer.onGround && !nearEdge(5f) && !WorldUtils.airInFront(mc.thePlayer, 3f)) {
-                Movement.singleJump(RandomUtils.randomIntInRange(100, 150))
-            }
-
-            if (clear) {
-                Combat.stopRandomStrafe()
+            val jumpDistanceThreshold = RandomUtils.randomDoubleInRange(5.5, 7.0)
+            if (canDistanceJump && distance >= jumpDistanceThreshold && mc.thePlayer.onGround && !WorldUtils.airInFront(mc.thePlayer, 3f) && !tapping) {
                 Movement.clearLeftRight()
-            } else if (!tapping) {
-                if (randomStrafe) {
-                    Combat.startRandomStrafe(900, 1400)
-                } else {
-                    Combat.stopRandomStrafe()
-                    if (movePriority[0] > movePriority[1]) {
-                        Movement.stopRight()
-                        Movement.startLeft()
-                    } else if (movePriority[1] > movePriority[0]) {
-                        Movement.stopLeft()
-                        Movement.startRight()
+                Movement.startForward()
+                Movement.singleJump(RandomUtils.randomIntInRange(100, 150))
+                canDistanceJump = false
+                TimeUtils.setTimeout(fun() { canDistanceJump = true }, RandomUtils.randomIntInRange(500, 1000))
+            } else {
+                if (combo >= 3 && distance >= 3.2 && distance < jumpDistanceThreshold - 0.5 && mc.thePlayer.onGround && !nearEdge(4f) && !WorldUtils.airInFront(mc.thePlayer, 3f) && !tapping) {
+                    Movement.clearLeftRight()
+                    Movement.singleJump(RandomUtils.randomIntInRange(100, 150))
+                }
+
+                if (!tapping) {
+                    if (distance < 1.2) {
+                        Movement.stopForward()
                     } else {
-                        if (RandomUtils.randomBool()) {
-                            Movement.startLeft()
-                        } else {
-                            Movement.startRight()
+                        if (!WorldUtils.airInFront(mc.thePlayer, 1.75f) || !mc.thePlayer.onGround) {
+                            Movement.startForward()
                         }
                     }
                 }
-            }
 
-            if (distance < 1.2) {
-                Movement.stopForward()
-            } else {
-                if (!tapping) {
-                    Movement.startForward()
+                if (WorldUtils.airInFront(mc.thePlayer, 1.75f) && mc.thePlayer.onGround) {
+                    Movement.startSneaking()
+                    Movement.stopForward()
+                    Movement.clearLeftRight()
+                } else {
+                    Movement.stopSneaking()
+                }
+
+                if (WorldUtils.airInBack(mc.thePlayer, 2.0f) && mc.thePlayer.onGround) {
+                    Movement.clearLeftRight()
+                    if (!tapping) {
+                        Movement.startForward()
+                    }
+                }
+
+                if (Movement.left() && WorldUtils.airOnLeft(mc.thePlayer, 1.5f) && mc.thePlayer.onGround) {
+                    Movement.stopLeft()
+                }
+                if (Movement.right() && WorldUtils.airOnRight(mc.thePlayer, 1.5f) && mc.thePlayer.onGround) {
+                    Movement.stopRight()
+                }
+
+                if (!tapping &&
+                    !(WorldUtils.airInBack(mc.thePlayer, 2.0f) && mc.thePlayer.onGround) &&
+                    !(Movement.left() && WorldUtils.airOnLeft(mc.thePlayer, 1.5f) && mc.thePlayer.onGround) &&
+                    !(Movement.right() && WorldUtils.airOnRight(mc.thePlayer, 1.5f) && mc.thePlayer.onGround)
+                ) {
                 }
             }
-
-            // don't walk off an edge
-            if (WorldUtils.airInFront(mc.thePlayer, 2f) && mc.thePlayer.onGround) {
-                Movement.startSneaking()
-            } else {
-                Movement.stopSneaking()
-            }
-            if (WorldUtils.airInBack(mc.thePlayer, 2.5f) && mc.thePlayer.onGround) {
-                Movement.startForward()
-                Movement.clearLeftRight()
-            }
         } else {
-            if (opponentOffEdge && StateManager.state == StateManager.States.PLAYING) {
+            val isMoving = Movement.forward() || Movement.backward() || Movement.left() || Movement.right()
+
+            if (opponentOffEdge || StateManager.state != StateManager.States.PLAYING) {
                 Movement.clearAll()
                 Mouse.stopLeftAC()
                 Combat.stopRandomStrafe()
@@ -192,5 +197,4 @@ class Sumo : BotBase("/play duels_sumo_duel") {
             }
         }
     }
-
 }
