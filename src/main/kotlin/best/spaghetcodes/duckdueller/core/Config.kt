@@ -25,15 +25,6 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
     val currentBot = 0
 
     @Property(
-        type = PropertyType.TEXT,
-        name = "API Key",
-        description = "This account's API key, can also be set using \"/api new\".",
-        placeholder = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-        category = "General",
-    )
-    var apiKey = ""
-
-    @Property(
         type = PropertyType.SWITCH,
         name = "Lobby Movement",
         description = "Whether or not the bot should move in pre-game lobbies.",
@@ -101,7 +92,7 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
         name = "Max CPS",
         description = "The maximum CPS that the bot will be clicking at.",
         category = "Combat",
-        min = 9,
+        min = 1,
         max = 18,
         increment = 1
     )
@@ -228,7 +219,7 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
         name = "Auto Requeue Delay",
         description = "How long to wait after a game before re-queueing",
         category = "Auto Requeue",
-        min = 500,
+        min = 0,
         max = 5000,
         increment = 50
     )
@@ -260,81 +251,6 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
         category = "Auto Requeue",
     )
     val fastRequeue = true
-
-    /*
-        Queue Dodging
-     */
-
-    @Property(
-        type = PropertyType.SWITCH,
-        name = "Enable Queue Dodging",
-        description = "Whether or not the bot should dodge people based on stats",
-        category = "Queue Dodging",
-    )
-    val enableDodging = true
-
-    @Property(
-        type = PropertyType.SLIDER,
-        name = "Dodge Wins",
-        description = "How many wins a player can have before being dodged",
-        category = "Queue Dodging",
-        min = 500,
-        max = 20000
-    )
-    val dodgeWins = 4000
-
-    @Property(
-        type = PropertyType.NUMBER,
-        name = "Dodge WS",
-        description = "How large a player's winstreak can be before being dodged",
-        category = "Queue Dodging",
-        min = 10,
-        max = 100,
-        increment = 5
-    )
-    val dodgeWS = 15
-
-    @Property(
-        type = PropertyType.DECIMAL_SLIDER,
-        name = "Dodge W/L",
-        description = "How large a player's w/l ratio can be before being dodged",
-        category = "Queue Dodging",
-        minF = 2f,
-        maxF = 15f,
-    )
-    val dodgeWLR = 3.0f
-
-    @Property(
-        type = PropertyType.PARAGRAPH,
-        name = "Specific Players to Dodge",
-        description = "Players to dodge regardless of stats (comma separated)",
-        category = "Queue Dodging",
-    )
-    val dodgePlayersList = ""
-
-    @Property(
-        type = PropertyType.SWITCH,
-        name = "Dodge Lost To",
-        description = "Whether or not the bot should dodge people it already lost against",
-        category = "Queue Dodging",
-    )
-    val dodgeLostTo = true
-
-    @Property(
-        type = PropertyType.SWITCH,
-        name = "Dodge No Stats",
-        description = "Whether or not the bot should dodge when no stats are found (nicked player or hypixel error)",
-        category = "Queue Dodging",
-    )
-    val dodgeNoStats = true
-
-    @Property(
-        type = PropertyType.SWITCH,
-        name = "Strict Dodging",
-        description = "If Hypixel prevents the bot from leaving (woah there, slow down!), it will disconnect and reconnect to dodge.",
-        category = "Queue Dodging",
-    )
-    val strictDodging = false
 
     /*
         Webhook
@@ -394,12 +310,6 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
 
         addDependency("startMessage", "sendStartMessage")
         addDependency("startMessageDelay", "sendStartMessage")
-
-        addDependency("dodgeWins", "enableDodging")
-        addDependency("dodgeWS", "enableDodging")
-        addDependency("dodgeWLR", "enableDodging")
-        addDependency("dodgeLostTo", "enableDodging")
-        addDependency("dodgeNoStats", "enableDodging")
 
         registerListener("currentBot") { bot: Int ->
             if (bots.keys.contains(bot)) {

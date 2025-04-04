@@ -31,6 +31,9 @@ class Sumo : BotBase("/play duels_sumo_duel") {
     private var tap50 = false
     private var canDistanceJump = true
 
+    private val minAttackDistance = 3.0
+    private val maxAttackDistance = 4.0
+
     override fun onJoinGame() {
         if (DuckDueller.config?.lobbyMovement == true) {
             LobbyMovement.sumo()
@@ -70,7 +73,6 @@ class Sumo : BotBase("/play duels_sumo_duel") {
         if (!tapping && StateManager.state == StateManager.States.PLAYING) {
             tapping = true
             val dur = if (tap50) 50 else 100
-            ChatUtils.info("W-Tap $dur")
             Combat.wTap(dur)
             tap50 = !tap50
             TimeUtils.setTimeout(fun () {
@@ -126,7 +128,9 @@ class Sumo : BotBase("/play duels_sumo_duel") {
 
             val distance = EntityUtils.getDistanceNoY(mc.thePlayer, opponent()!!)
 
-            if (distance > (DuckDueller.config?.maxDistanceAttack ?: 5)) {
+            val currentAttackThreshold = RandomUtils.randomDoubleInRange(minAttackDistance, maxAttackDistance)
+
+            if (distance > currentAttackThreshold) {
                 Mouse.stopLeftAC()
             } else {
                 Mouse.startLeftAC()
@@ -187,14 +191,9 @@ class Sumo : BotBase("/play duels_sumo_duel") {
                 }
             }
         } else {
-            val isMoving = Movement.forward() || Movement.backward() || Movement.left() || Movement.right()
-
-            if (opponentOffEdge || StateManager.state != StateManager.States.PLAYING) {
-                Movement.clearAll()
-                Mouse.stopLeftAC()
-                Combat.stopRandomStrafe()
-                Mouse.stopTracking()
-            }
+            Mouse.stopLeftAC()
+            Combat.stopRandomStrafe()
+            Mouse.stopTracking()
         }
     }
 }

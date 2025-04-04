@@ -10,8 +10,8 @@ import org.lwjgl.input.Keyboard
 
 object KeyBindings {
 
-    val toggleBotKeyBinding = KeyBinding("duck.toggleBot", Keyboard.KEY_SEMICOLON, "category.duck")
-    val configGuiKeyBinding = KeyBinding("duck.configGui", Keyboard.KEY_RSHIFT, "category.duck")
+    val toggleBotKeyBinding = KeyBinding("Toggle bot", Keyboard.KEY_SEMICOLON, "Elixir Client")
+    val configGuiKeyBinding = KeyBinding("Config Gui", Keyboard.KEY_RSHIFT, "Elixir Client")
 
     fun register() {
         ClientRegistry.registerKeyBinding(toggleBotKeyBinding)

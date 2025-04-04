@@ -30,11 +30,11 @@ object ChatUtils {
     }
 
     fun info(message: String) {
-        sendChatMessage("${EnumChatFormatting.GOLD}[${EnumChatFormatting.GREEN}${EnumChatFormatting.BOLD}Duck${EnumChatFormatting.RESET}${EnumChatFormatting.DARK_GREEN}Dueller${EnumChatFormatting.GOLD}] ${EnumChatFormatting.WHITE}$message")
+        sendChatMessage("${EnumChatFormatting.DARK_PURPLE}[${EnumChatFormatting.LIGHT_PURPLE}${EnumChatFormatting.BOLD}Elixir${EnumChatFormatting.RESET}${EnumChatFormatting.DARK_PURPLE}] ${EnumChatFormatting.WHITE}$message")
     }
 
     fun error(message: String) {
-        sendChatMessage("${EnumChatFormatting.GOLD}[${EnumChatFormatting.GREEN}${EnumChatFormatting.BOLD}Duck${EnumChatFormatting.RESET}${EnumChatFormatting.DARK_GREEN}Dueller${EnumChatFormatting.GOLD}] ${EnumChatFormatting.RED}$message")
+        sendChatMessage("${EnumChatFormatting.DARK_PURPLE}[${EnumChatFormatting.LIGHT_PURPLE}${EnumChatFormatting.BOLD}Elixir${EnumChatFormatting.RESET}${EnumChatFormatting.DARK_PURPLE}] ${EnumChatFormatting.RED}$message")
     }
 
     private fun sendChatMessage(message: String) {

@@ -8,7 +8,6 @@ class ConfigSorter : SortingBehavior() {
     private val items = arrayListOf(
         "General",
         "Combat",
-        "Queue Dodging",
         "Auto Requeue",
         "AutoGG",
         "Webhook",
