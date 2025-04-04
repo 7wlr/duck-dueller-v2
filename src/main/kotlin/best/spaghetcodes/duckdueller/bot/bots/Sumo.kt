@@ -72,18 +72,29 @@ class Sumo : BotBase("/play duels_sumo_duel") {
     override fun onAttack() {
         if (!tapping && StateManager.state == StateManager.States.PLAYING) {
             tapping = true
-            val dur = if (tap50) 50 else 100
-            Combat.wTap(dur)
-            tap50 = !tap50
+            
+            // 🎯 Hit Selecting - vent med noen slag for å gi motstanderen mer knockback
+            val attackDelay = if (RandomUtils.randomIntInRange(1, 3) == 1) 75 else 0
+
             TimeUtils.setTimeout(fun () {
+                val dur = if (tap50) 50 else 100
+                Combat.wTap(dur)
+                tap50 = !tap50
                 tapping = false
-            }, (dur.toLong() + 15).toInt())
+            }, attackDelay)
         }
     }
 
     override fun onFoundOpponent() {
         if (StateManager.state == StateManager.States.PLAYING) {
             Mouse.startTracking()
+        }
+    }
+
+    // 🦘 Jump Reset - hopp for å nullstille knockback hvis vi blir truffet
+    fun jumpReset() {
+        if (mc.thePlayer.hurtTime > 0 && mc.thePlayer.onGround) {
+            Movement.singleJump(RandomUtils.randomIntInRange(50, 100))
         }
     }
 
