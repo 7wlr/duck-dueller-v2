@@ -73,7 +73,7 @@ class Sumo : BotBase("/play duels_sumo_duel") {
         if (!tapping && StateManager.state == StateManager.States.PLAYING) {
             tapping = true
             
-            // 🎯 Hit Selecting - vent med noen slag for å gi motstanderen mer knockback
+            
             val attackDelay = if (RandomUtils.randomIntInRange(1, 3) == 1) 75 else 0
 
             TimeUtils.setTimeout(fun () {
@@ -91,7 +91,7 @@ class Sumo : BotBase("/play duels_sumo_duel") {
         }
     }
 
-    // 🦘 Jump Reset - hopp for å nullstille knockback hvis vi blir truffet
+   
     fun jumpReset() {
         if (mc.thePlayer.hurtTime > 0 && mc.thePlayer.onGround) {
             Movement.singleJump(RandomUtils.randomIntInRange(50, 100))
