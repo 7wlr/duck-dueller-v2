@@ -345,6 +345,18 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
     )
     val boxingFish = false
 
+    /*
+        HUD
+    */
+
+    @Property(
+        type = PropertyType.SWITCH,
+        name = "Session Stats HUD",
+        description = "Show a HUD with the current session stats.",
+        category = "HUD"
+    )
+    var sessionStatsHUD = true
+
 
     private val regularBotOptionsArray = arrayOf("Sumo", "Boxing", "Classic", "OP", "Combo")
     private val minRegularBotIndex = 0

@@ -12,7 +12,8 @@ class ConfigSorter : SortingBehavior() {
         "Auto Requeue",
         "AutoGG",
         "Webhook",
-        "Misc"
+        "Misc",
+        "HUD"
     )
 
     override fun getCategoryComparator(): Comparator<in Category> = compareBy { items.indexOf(it.name) }

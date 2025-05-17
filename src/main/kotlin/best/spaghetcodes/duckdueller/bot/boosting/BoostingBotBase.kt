@@ -2,6 +2,7 @@ package best.spaghetcodes.duckdueller.bot.boosting
 
 import best.spaghetcodes.duckdueller.DuckDueller
 import best.spaghetcodes.duckdueller.bot.BotBase
+import best.spaghetcodes.duckdueller.bot.Session
 import best.spaghetcodes.duckdueller.utils.ChatUtils
 import best.spaghetcodes.duckdueller.utils.RandomUtils
 import best.spaghetcodes.duckdueller.utils.TimeUtils
@@ -28,19 +29,18 @@ abstract class BoostingBotBase(
                     onGameStartDetected()
 
                     val configuredDelay = DuckDueller.config?.boostingRequeueDelay ?: 250
-                    val randomizedDelay = RandomUtils.randomIntInRange(
-                        configuredDelay,
-                        configuredDelay + RandomUtils.randomIntInRange(50, 200)
-                    )
+                    val randomizedAdditionalDelay = RandomUtils.randomIntInRange(50, 200)
+                    val totalRandomizedDelay = configuredDelay + randomizedAdditionalDelay
 
                     TimeUtils.setTimeout(fun() {
                         if (toggled() && DuckDueller.config?.enableBoostingMode == true && DuckDueller.bot === this) {
                             ChatUtils.sendAsPlayer(this.queueCommand)
+                            Session.addLoss()
                             TimeUtils.setTimeout(fun () { gameHasStartedCurrentCycle = false }, 750)
                         } else {
                             gameHasStartedCurrentCycle = false
                         }
-                    }, randomizedDelay)
+                    }, totalRandomizedDelay)
                 }
             }
         }
@@ -66,8 +66,9 @@ abstract class BoostingBotBase(
     override fun onGameEnd() {
         if (DuckDueller.config?.enableBoostingMode == true && DuckDueller.bot === this) {
             gameHasStartedCurrentCycle = false
+        } else {
+            super.onGameEnd()
         }
-        super.onGameEnd()
     }
 
     override fun onTick() {

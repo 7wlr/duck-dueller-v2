@@ -11,6 +11,7 @@ import com.google.gson.JsonObject
 import io.netty.channel.ChannelHandlerContext
 import io.netty.channel.SimpleChannelInboundHandler
 import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.FontRenderer
 import net.minecraft.client.gui.GuiMainMenu
 import net.minecraft.client.gui.GuiMultiplayer
 import net.minecraft.client.multiplayer.GuiConnecting
@@ -22,6 +23,7 @@ import net.minecraft.network.play.server.S3EPacketTeams
 import net.minecraft.network.play.server.S45PacketTitle
 import net.minecraft.util.EnumChatFormatting
 import net.minecraftforge.client.event.ClientChatReceivedEvent
+import net.minecraftforge.client.event.RenderGameOverlayEvent
 import net.minecraftforge.event.entity.EntityJoinWorldEvent
 import net.minecraftforge.event.entity.player.AttackEntityEvent
 import net.minecraftforge.fml.client.FMLClientHandler
@@ -193,16 +195,17 @@ open class BotBase(val queueCommand: String, val quickRefresh: Int = 10000) {
 
                                     val p = ChatUtils.removeFormatting(packet.message.unformattedText).split("won")[0].trim()
                                     if (unformatted.contains(mc.thePlayer.displayNameString.lowercase())) {
-                                        Session.wins++
+                                        Session.addWin()
                                         winner = mc.thePlayer.displayNameString
                                         loser = lastOpponentName
                                         iWon = true
                                     } else {
-                                        Session.losses++
+                                        Session.addLoss()
                                         winner = p
                                         loser = mc.thePlayer.displayNameString
                                         iWon = false
                                     }
+                                    ChatUtils.info("Wins: ${Session.wins}, Losses: ${Session.losses}")
 
                                     ChatUtils.info(Session.getSession())
 
@@ -224,7 +227,7 @@ open class BotBase(val queueCommand: String, val quickRefresh: Int = 10000) {
                                     }
 
                                     if ((DuckDueller.config?.disconnectAfterMinutes ?: 0) > 0) {
-                                        if (System.currentTimeMillis() - Session.startTime >= DuckDueller.config?.disconnectAfterMinutes!! * 60 * 1000) {
+                                        if (Session.getUptimeMillis() >= (DuckDueller.config?.disconnectAfterMinutes ?: 0) * 60 * 1000L) {
                                             ChatUtils.info("Played for ${DuckDueller.config?.disconnectAfterMinutes} minutes, disconnecting...")
                                             TimeUtils.setTimeout(fun () {
                                                 ChatUtils.sendAsPlayer("/l duels")
@@ -248,8 +251,9 @@ open class BotBase(val queueCommand: String, val quickRefresh: Int = 10000) {
                                             val duration = StateManager.lastGameDuration / 1000
 
                                             val fields = WebHook.buildFields(arrayListOf(mapOf("name" to "Winner", "value" to winner, "inline" to "true"), mapOf("name" to "Loser", "value" to loser, "inline" to "true"), mapOf("name" to "Bot Started", "value" to "<t:${(Session.startTime / 1000).toInt()}:R>", "inline" to "false")))
-                                            val footer = WebHook.buildFooter(ChatUtils.removeFormatting(Session.getSession()), "https://raw.githubusercontent.com/HumanDuck23/upload-stuff-here/main/duck_dueller.png")
-                                            val author = WebHook.buildAuthor("Duck Dueller - ${getName()}", "https://raw.githubusercontent.com/HumanDuck23/upload-stuff-here/main/duck_dueller.png")
+                                            val footerText = "W: ${Session.wins} L: ${Session.losses} | Uptime: ${Session.getUptimeString()}"
+                                            val footer = WebHook.buildFooter(footerText, "https://crafatar.com/avatars/${playerCache[opponentName]}")
+                                            val author = WebHook.buildAuthor("Duck Dueller - ${getName()}", "https://crafatar.com/avatars/${playerCache[opponentName]}")
                                             val thumbnail = WebHook.buildThumbnail(faceUrl)
 
                                             WebHook.sendEmbed(
@@ -311,7 +315,7 @@ open class BotBase(val queueCommand: String, val quickRefresh: Int = 10000) {
             if (toggled()) {
                 ChatUtils.info("Current selected bot: ${EnumChatFormatting.GREEN}${getName()}")
                 joinGame()
-                Session.startTime = System.currentTimeMillis()
+                Session.reset()
             }
         }
     }
@@ -406,6 +410,59 @@ open class BotBase(val queueCommand: String, val quickRefresh: Int = 10000) {
         }
     }
 
+    @SubscribeEvent
+    fun onRenderGameOverlay(event: RenderGameOverlayEvent.Text) {
+        if (!toggled() || event.type != RenderGameOverlayEvent.ElementType.TEXT) {
+            return
+        }
+
+        val fr: FontRenderer = mc.fontRendererObj
+        val M = EnumChatFormatting.GRAY
+        val V = EnumChatFormatting.WHITE
+
+        val xPos = 5f
+        var yPos = 5f
+        val yStep = fr.FONT_HEIGHT + 2
+
+        fr.drawStringWithShadow(
+            "${EnumChatFormatting.LIGHT_PURPLE}${EnumChatFormatting.BOLD}WLR${EnumChatFormatting.RESET} ${EnumChatFormatting.GRAY}> ${EnumChatFormatting.YELLOW}${getName()}",
+            xPos,
+            yPos,
+            0xFFFFFF
+        )
+        yPos += yStep + 2
+
+        if (DuckDueller.config?.sessionStatsHUD == true) {
+            val dfRatio = DecimalFormat("#.##").apply { roundingMode = RoundingMode.DOWN }
+            val dfPerHour = DecimalFormat("#.#").apply { roundingMode = RoundingMode.DOWN }
+
+            val currentWins = Session.wins
+            val currentLosses = Session.losses
+            val uptimeMillis = Session.getUptimeMillis()
+
+            val wlr = if (currentLosses == 0) {
+                if (currentWins > 0) "Inf" else "N/A"
+            } else {
+                dfRatio.format(currentWins.toDouble() / currentLosses.toDouble())
+            }
+
+            val hoursTotal = if (uptimeMillis > 0) uptimeMillis.toDouble() / (1000.0 * 60.0 * 60.0) else 0.0
+            val winsPerHour = if (hoursTotal > 0.001) {
+                dfPerHour.format(currentWins.toDouble() / hoursTotal)
+            } else {
+                "N/A"
+            }
+
+            fr.drawStringWithShadow("${M}Wins: ${EnumChatFormatting.GREEN}$currentWins ${V}($winsPerHour/h)", xPos, yPos, 0xFFFFFF)
+            yPos += yStep
+            fr.drawStringWithShadow("${M}Losses: ${EnumChatFormatting.RED}$currentLosses", xPos, yPos, 0xFFFFFF)
+            yPos += yStep
+            fr.drawStringWithShadow("${M}WLR: ${EnumChatFormatting.AQUA}$wlr", xPos, yPos, 0xFFFFFF)
+            yPos += yStep
+            fr.drawStringWithShadow("${M}Uptime: ${EnumChatFormatting.LIGHT_PURPLE}${Session.getUptimeString()}", xPos, yPos, 0xFFFFFF)
+        }
+    }
+
     /********
      * Private Methods
      ********/
@@ -457,6 +514,7 @@ open class BotBase(val queueCommand: String, val quickRefresh: Int = 10000) {
             } else {
                 TimeUtils.setTimeout(this::joinGame, delay)
             }
+            calledGameEnd = false
         }
     }
 
