@@ -2,11 +2,10 @@ package best.spaghetcodes.duckdueller.bot
 
 import best.spaghetcodes.duckdueller.DuckDueller
 import best.spaghetcodes.duckdueller.bot.player.*
+import best.spaghetcodes.duckdueller.bot.replay.ReplayClearingBot
 import best.spaghetcodes.duckdueller.core.KeyBindings
 import best.spaghetcodes.duckdueller.utils.*
 import com.google.gson.JsonArray
-import com.google.gson.JsonElement
-import com.google.gson.JsonNull
 import com.google.gson.JsonObject
 import io.netty.channel.ChannelHandlerContext
 import io.netty.channel.SimpleChannelInboundHandler
@@ -417,7 +416,15 @@ open class BotBase(val queueCommand: String, val quickRefresh: Int = 10000) {
 
     @SubscribeEvent
     fun onRenderGameOverlay(event: RenderGameOverlayEvent.Text) {
-        if (!toggled() || event.type != RenderGameOverlayEvent.ElementType.TEXT) {
+        if (event.type != RenderGameOverlayEvent.ElementType.TEXT) {
+            return
+        }
+
+        if (DuckDueller.bot == null ||
+            DuckDueller.bot !== this ||
+            !this.toggled() ||
+            DuckDueller.bot is ReplayClearingBot
+        ) {
             return
         }
 

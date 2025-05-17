@@ -5,7 +5,7 @@ import best.spaghetcodes.duckdueller.bot.BotBase
 import best.spaghetcodes.duckdueller.bot.boosting.BoostingBotBase
 import best.spaghetcodes.duckdueller.bot.boosting.*
 import best.spaghetcodes.duckdueller.bot.bots.*
-import best.spaghetcodes.duckdueller.bot.features.Potion
+import best.spaghetcodes.duckdueller.bot.replay.ReplayClearingBot
 import gg.essential.vigilance.Vigilant
 import gg.essential.vigilance.data.Property
 import gg.essential.vigilance.data.PropertyType
@@ -87,18 +87,18 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
     var enableBoostingMode = false
 
     val boostingBotInstances: List<BoostingBotBase> = listOf(
-        SumoBoost() as BoostingBotBase,
-        BlitzBoost() as BoostingBotBase,
-        BoxingBoost() as BoostingBotBase,
-        ClassicBoost() as BoostingBotBase,
-        OPBoost() as BoostingBotBase,
-        TntBoost() as BoostingBotBase,
-        UhcBoost() as BoostingBotBase,
-        BowBoost() as BoostingBotBase,
-        ComboBoost() as BoostingBotBase,
-        PotionBoost() as BoostingBotBase,
-        MwBoost() as BoostingBotBase,
-        SwBoost() as BoostingBotBase
+        SumoBoost(),
+        BlitzBoost(),
+        BoxingBoost(),
+        ClassicBoost(),
+        OPBoost(),
+        TntBoost(),
+        UhcBoost(),
+        BowBoost(),
+        ComboBoost(),
+        PotionBoost(),
+        MwBoost(),
+        SwBoost()
     )
 
     @Property(
@@ -120,6 +120,47 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
         increment = 50
     )
     var boostingRequeueDelay = 250
+
+    @Property(
+        type = PropertyType.SWITCH,
+        name = "Enable Replay Clearing Mode",
+        description = "Enable to use the Replay Clearing bot. This will override other bot selections.",
+        category = "Replay Clearing"
+    )
+    var enableReplayClearingMode = false
+
+    @Property(
+        type = PropertyType.NUMBER,
+        name = "Min Delay (ms)",
+        description = "Minimum delay between /housing random commands (in milliseconds).",
+        category = "Replay Clearing",
+        min = 500,
+        max = 20000,
+        increment = 100
+    )
+    var replayClearingMinDelay = 2000
+
+    @Property(
+        type = PropertyType.NUMBER,
+        name = "Max Delay (ms)",
+        description = "Maximum delay between /housing random commands (in milliseconds).",
+        category = "Replay Clearing",
+        min = 500,
+        max = 20000,
+        increment = 100
+    )
+    var replayClearingMaxDelay = 5000
+
+    @Property(
+        type = PropertyType.NUMBER,
+        name = "Command Count",
+        description = "Number of times to send /housing random per session.",
+        category = "Replay Clearing",
+        min = 1,
+        max = 10000,
+        increment = 10
+    )
+    var replayClearingCommandCount = 500
 
     @Property(
         type = PropertyType.NUMBER,
@@ -384,6 +425,7 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
     private val minBoostingBotIndex = 0
     private val maxBoostingBotIndex = if (boostingBotInstances.isNotEmpty()) boostingBotInstances.size - 1 else 0
 
+    val replayClearingBotInstance: ReplayClearingBot = ReplayClearingBot()
 
     val bots: Map<Int, BotBase> = mapOf(
         0 to Sumo(),
@@ -410,6 +452,9 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
             this.boostingRequeueDelay = minBoostingDelay
         }
 
+        addDependency("replayClearingMinDelay", "enableReplayClearingMode")
+        addDependency("replayClearingMaxDelay", "enableReplayClearingMode")
+        addDependency("replayClearingCommandCount", "enableReplayClearingMode")
 
         addDependency("selectedBoostingBotIndex", "enableBoostingMode")
         addDependency("boostingRequeueDelay", "enableBoostingMode")
@@ -424,33 +469,65 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
 
         addDependency("comboResetDistance", "enableComboResetByDistance")
 
-
-        registerListener<Int>("currentBot") { uiAttemptedValue ->
-            if (!this.enableBoostingMode) {
-                DuckDueller.updateActiveBot(
-                    newBoostingModeState = null,
-                    newRegularBotIndex = uiAttemptedValue,
-                    newBoostingBotIndex = null
-                )
+        registerListener<Boolean>("enableReplayClearingMode") { isBeingEnabled ->
+            if (isBeingEnabled) {
+                if (this.enableBoostingMode) {
+                    this.enableBoostingMode = false
+                }
             }
-        }
-
-        registerListener<Boolean>("enableBoostingMode") { newValueFromUI ->
             DuckDueller.updateActiveBot(
-                newBoostingModeState = newValueFromUI,
+                newReplayClearingModeState = isBeingEnabled,
+                newBoostingModeState = if (isBeingEnabled) false else null,
                 newRegularBotIndex = null,
                 newBoostingBotIndex = null
             )
         }
 
-        registerListener<Int>("selectedBoostingBotIndex") { uiAttemptedValue ->
-            if (this.enableBoostingMode) {
-                DuckDueller.updateActiveBot(
-                    newBoostingModeState = null,
-                    newRegularBotIndex = null,
-                    newBoostingBotIndex = uiAttemptedValue
-                )
+        registerListener<Boolean>("enableBoostingMode") { isBeingEnabled ->
+            if (isBeingEnabled) {
+                if (this.enableReplayClearingMode) {
+                    this.enableReplayClearingMode = false
+                }
             }
+            DuckDueller.updateActiveBot(
+                newReplayClearingModeState = if (isBeingEnabled) false else null,
+                newBoostingModeState = isBeingEnabled,
+                newRegularBotIndex = null,
+                newBoostingBotIndex = null
+            )
+        }
+
+        registerListener<Int>("currentBot") { newBotIndex ->
+            if (this.enableBoostingMode) {
+                this.enableBoostingMode = false
+            }
+            if (this.enableReplayClearingMode) {
+                this.enableReplayClearingMode = false
+            }
+
+            DuckDueller.updateActiveBot(
+                newReplayClearingModeState = false,
+                newBoostingModeState = false,
+                newRegularBotIndex = newBotIndex,
+                newBoostingBotIndex = null
+            )
+        }
+
+        registerListener<Int>("selectedBoostingBotIndex") { newBoostingIndex ->
+            if (this.enableReplayClearingMode) {
+                this.enableReplayClearingMode = false
+            }
+
+            if (!this.enableBoostingMode) {
+                this.enableBoostingMode = true
+            }
+
+            DuckDueller.updateActiveBot(
+                newReplayClearingModeState = false,
+                newBoostingModeState = true,
+                newRegularBotIndex = null,
+                newBoostingBotIndex = newBoostingIndex
+            )
         }
     }
 

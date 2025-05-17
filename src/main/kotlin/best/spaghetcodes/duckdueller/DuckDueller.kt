@@ -30,11 +30,12 @@ class DuckDueller {
         const val configLocation = "./config/duckdueller.toml"
 
         val mc: Minecraft by lazy { Minecraft.getMinecraft() }
-        val gson = Gson()
+        val gson = com.google.gson.Gson()
         var config: Config? = null
         var bot: BotBase? = null
 
         fun updateActiveBot(
+            newReplayClearingModeState: Boolean? = null,
             newBoostingModeState: Boolean? = null,
             newRegularBotIndex: Int? = null,
             newBoostingBotIndex: Int? = null
@@ -44,26 +45,21 @@ class DuckDueller {
                 return
             }
 
-            val configSnapshotBoostingState: Boolean = localConfig.enableBoostingMode
-            val configSnapshotRegularBotIdx: Int = localConfig.currentBot
-            val configSnapshotBoostingBotIdx: Int = localConfig.selectedBoostingBotIndex
+            val effectiveReplayClearingEnabled = newReplayClearingModeState ?: localConfig.enableReplayClearingMode
+            val effectiveBoostingEnabled = newBoostingModeState ?: localConfig.enableBoostingMode
 
-            val effectiveBoostingEnabled = newBoostingModeState ?: configSnapshotBoostingState
-            val effectiveRegularBotIdx = newRegularBotIndex ?: configSnapshotRegularBotIdx
+            val effectiveRegularBotIdx = newRegularBotIndex ?: localConfig.currentBot
+            val effectiveBoostingBotIdx = newBoostingBotIndex ?: localConfig.selectedBoostingBotIndex
 
             var newBotToSelect: BotBase? = null
-            if (effectiveBoostingEnabled) {
-                val indexForBoostingBot: Int
-                if (newBoostingBotIndex != null) {
-                    indexForBoostingBot = newBoostingBotIndex
-                } else {
-                    indexForBoostingBot = configSnapshotBoostingBotIdx
-                }
 
+            if (effectiveReplayClearingEnabled) {
+                newBotToSelect = localConfig.replayClearingBotInstance
+            } else if (effectiveBoostingEnabled) {
                 if (localConfig.boostingBotInstances.isNotEmpty()) {
                     val minIdx = 0
                     val maxIdx = localConfig.boostingBotInstances.size - 1
-                    val actualIndexToUse = indexForBoostingBot.coerceIn(minIdx, maxIdx)
+                    val actualIndexToUse = effectiveBoostingBotIdx.coerceIn(minIdx, maxIdx)
                     newBotToSelect = localConfig.boostingBotInstances.getOrNull(actualIndexToUse)
                 } else {
                     newBotToSelect = null
