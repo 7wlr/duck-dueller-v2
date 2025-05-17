@@ -46,16 +46,13 @@ class ReplayClearingBot : BotBase(queueCommand = "") {
         nextCommandTime = System.currentTimeMillis() + RandomUtils.randomIntInRange(minDelayMs / 2, minDelayMs)
         sessionInProgress = true
         waitingForCooldown = false
-        ChatUtils.info("Replay Clearing Bot session started. Will send $maxCommandsToExecute commands. Uptime tracking started.")
     }
 
     private fun stopSession(completed: Boolean = false) {
         sessionInProgress = false
         waitingForCooldown = false
         if (completed) {
-            ChatUtils.info("Replay Clearing Bot: Finished sending $maxCommandsToExecute commands. Skipped: $commandsSkippedThisSession.")
         } else {
-            ChatUtils.info("Replay Clearing Bot session stopped. Sent: $commandsSentThisSession, Skipped: $commandsSkippedThisSession.")
         }
     }
 
@@ -68,7 +65,6 @@ class ReplayClearingBot : BotBase(queueCommand = "") {
         val message = event.message.unformattedText
         if (message.contains(cooldownMessageTrigger)) {
             if (System.currentTimeMillis() - lastCommandSentTime < 2000) {
-                ChatUtils.info("ReplayClearingBot: Cooldown detected. Adjusting counts and schedule.")
                 if (commandsSentThisSession > 0) {
                     commandsSentThisSession--
                 }
