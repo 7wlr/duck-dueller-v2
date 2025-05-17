@@ -1,13 +1,18 @@
 package best.spaghetcodes.duckdueller.core
 
 import best.spaghetcodes.duckdueller.DuckDueller
+import best.spaghetcodes.duckdueller.bot.BotBase
+import best.spaghetcodes.duckdueller.bot.boosting.BoostingBotBase
+import best.spaghetcodes.duckdueller.bot.boosting.*
 import best.spaghetcodes.duckdueller.bot.bots.*
-import best.spaghetcodes.duckdueller.utils.ChatUtils
+import best.spaghetcodes.duckdueller.bot.features.Potion
 import gg.essential.vigilance.Vigilant
 import gg.essential.vigilance.data.Property
 import gg.essential.vigilance.data.PropertyType
 
 import java.io.File
+import kotlin.math.max
+import kotlin.math.min
 
 class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = ConfigSorter()) {
 
@@ -22,7 +27,7 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
         category = "General",
         options = ["Sumo", "Boxing", "Classic", "OP", "Combo"]
     )
-    val currentBot = 0
+    var currentBot = 0
 
     @Property(
         type = PropertyType.SWITCH,
@@ -72,9 +77,49 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
     )
     val disconnectAfterMinutes = 0
 
-    /*
-        COMBAT
-     */
+
+    @Property(
+        type = PropertyType.SWITCH,
+        name = "Enable Boosting Mode",
+        description = "Enable to use boosting bots instead of gameplay bots.",
+        category = "Boosting"
+    )
+    var enableBoostingMode = false
+
+    val boostingBotInstances: List<BoostingBotBase> = listOf(
+        SumoBoost() as BoostingBotBase,
+        BlitzBoost() as BoostingBotBase,
+        BoxingBoost() as BoostingBotBase,
+        ClassicBoost() as BoostingBotBase,
+        OPBoost() as BoostingBotBase,
+        TntBoost() as BoostingBotBase,
+        UhcBoost() as BoostingBotBase,
+        BowBoost() as BoostingBotBase,
+        ComboBoost() as BoostingBotBase,
+        PotionBoost() as BoostingBotBase,
+        MwBoost() as BoostingBotBase,
+        SwBoost() as BoostingBotBase
+    )
+
+    @Property(
+        type = PropertyType.SELECTOR,
+        name = "Selected Boosting Bot",
+        description = "Choose which boosting bot to use when Boosting Mode is ON.",
+        category = "Boosting",
+        options = ["Sumo", "Blitz", "Boxing", "Classic", "OP", "TNT", "UHC", "Bow", "Combo", "NoDebuff", "MW", "Skywars"]
+    )
+    var selectedBoostingBotIndex = 0
+
+    @Property(
+        type = PropertyType.NUMBER,
+        name = "Boosting Requeue Delay (ms)",
+        description = "Base delay (ms) after game start detection before sending requeue command. Randomness will be added.",
+        category = "Boosting",
+        min = 0,
+        max = 5000,
+        increment = 50
+    )
+    var boostingRequeueDelay = 250
 
     @Property(
         type = PropertyType.NUMBER,
@@ -300,9 +345,44 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
     )
     val boxingFish = false
 
-    val bots = mapOf(0 to Sumo(), 1 to Boxing(), 2 to Classic(), 3 to OP(), 4 to Combo())
+
+    private val regularBotOptionsArray = arrayOf("Sumo", "Boxing", "Classic", "OP", "Combo")
+    private val minRegularBotIndex = 0
+    private val maxRegularBotIndex = if (regularBotOptionsArray.isNotEmpty()) regularBotOptionsArray.size - 1 else 0
+
+    private val minBoostingBotIndex = 0
+    private val maxBoostingBotIndex = if (boostingBotInstances.isNotEmpty()) boostingBotInstances.size - 1 else 0
+
+
+    val bots: Map<Int, BotBase> = mapOf(
+        0 to Sumo(),
+        1 to Boxing(),
+        2 to Classic(),
+        3 to OP(),
+        4 to Combo()
+    )
+
 
     init {
+        initialize()
+
+        if (this.currentBot < minRegularBotIndex || this.currentBot > maxRegularBotIndex) {
+            this.currentBot = minRegularBotIndex
+        }
+
+        if (this.selectedBoostingBotIndex < minBoostingBotIndex || this.selectedBoostingBotIndex > maxBoostingBotIndex) {
+            this.selectedBoostingBotIndex = minBoostingBotIndex
+        }
+
+        val minBoostingDelay = 50
+        if (this.boostingRequeueDelay < minBoostingDelay) {
+            this.boostingRequeueDelay = minBoostingDelay
+        }
+
+
+        addDependency("selectedBoostingBotIndex", "enableBoostingMode")
+        addDependency("boostingRequeueDelay", "enableBoostingMode")
+
         addDependency("webhookURL", "sendWebhookMessages")
 
         addDependency("ggMessage", "sendAutoGG")
@@ -311,12 +391,39 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
         addDependency("startMessage", "sendStartMessage")
         addDependency("startMessageDelay", "sendStartMessage")
 
-        registerListener("currentBot") { bot: Int ->
-            if (bots.keys.contains(bot)) {
-                DuckDueller.swapBot(bots[bot]!!)
+
+        registerListener<Int>("currentBot") { uiAttemptedValue ->
+            if (!this.enableBoostingMode) {
+                DuckDueller.updateActiveBot(
+                    newBoostingModeState = null,
+                    newRegularBotIndex = uiAttemptedValue,
+                    newBoostingBotIndex = null
+                )
             }
         }
 
-        initialize()
+        registerListener<Boolean>("enableBoostingMode") { newValueFromUI ->
+            DuckDueller.updateActiveBot(
+                newBoostingModeState = newValueFromUI,
+                newRegularBotIndex = null,
+                newBoostingBotIndex = null
+            )
+        }
+
+        registerListener<Int>("selectedBoostingBotIndex") { uiAttemptedValue ->
+            if (this.enableBoostingMode) {
+                DuckDueller.updateActiveBot(
+                    newBoostingModeState = null,
+                    newRegularBotIndex = null,
+                    newBoostingBotIndex = uiAttemptedValue
+                )
+            }
+        }
+    }
+
+    fun getActiveBoostingBotInstance(): BoostingBotBase? {
+        if (boostingBotInstances.isEmpty()) return null
+        val indexToUse = selectedBoostingBotIndex.coerceIn(minBoostingBotIndex, maxBoostingBotIndex)
+        return boostingBotInstances.getOrNull(indexToUse)
     }
 }

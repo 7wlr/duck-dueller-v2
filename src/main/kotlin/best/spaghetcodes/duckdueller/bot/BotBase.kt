@@ -307,7 +307,7 @@ open class BotBase(val queueCommand: String, val quickRefresh: Int = 10000) {
 
         if (KeyBindings.toggleBotKeyBinding.isPressed) {
             toggle()
-            ChatUtils.info("Elixir has been toggled ${if (toggled()) "${EnumChatFormatting.GREEN}on" else "${EnumChatFormatting.RED}off"}")
+            ChatUtils.info("WLR has been toggled ${if (toggled()) "${EnumChatFormatting.GREEN}on" else "${EnumChatFormatting.RED}off"}")
             if (toggled()) {
                 ChatUtils.info("Current selected bot: ${EnumChatFormatting.GREEN}${getName()}")
                 joinGame()

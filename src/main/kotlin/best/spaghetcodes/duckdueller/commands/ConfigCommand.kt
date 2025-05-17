@@ -5,7 +5,7 @@ import gg.essential.api.EssentialAPI
 import gg.essential.api.commands.Command
 import gg.essential.api.commands.DefaultHandler
 
-class ConfigCommand : Command("duckdueller") {
+class ConfigCommand : Command("wlr") {
 
     @DefaultHandler
     fun handle() {
