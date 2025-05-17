@@ -27,13 +27,19 @@ class Sumo : BotBase("/play duels_sumo_duel") {
         )
     }
 
+    private val STRAFE_MIN_DISTANCE_OPPONENT_OLD = 3.0
+    private val STRAFE_EDGE_DIFFERENCE_THRESHOLD_OLD = 1.0
+    private val MIN_COMBO_TO_CLEAR_STRAFE_OLD = 2
+
     private var tapping = false
     private var opponentOffEdge = false
     private var tap50 = false
     private var canDistanceJump = true
 
     private val minAttackDistance = 3.0
-    private val maxAttackDistance = 4.0
+    private val maxAttackDistanceConfigurable: Int
+        get() = DuckDueller.config?.maxDistanceAttack ?: 5
+
 
     override fun onJoinGame() {
         if (DuckDueller.config?.lobbyMovement == true) {
@@ -60,7 +66,7 @@ class Sumo : BotBase("/play duels_sumo_duel") {
         tapping = false
         opponentOffEdge = false
         tap50 = false
-        if (DuckDueller.config?.enableCustomCamera == true) {
+        if (DuckDueller.config?.enableCustomCamera == true && mc.thePlayer != null) {
             Camera.enable()
         }
     }
@@ -70,6 +76,9 @@ class Sumo : BotBase("/play duels_sumo_duel") {
             Mouse.stopLeftAC()
             Combat.stopRandomStrafe()
             Mouse.stopTracking()
+            Movement.startSprinting()
+            Movement.startForward()
+            Movement.startJumping()
         }, RandomUtils.randomIntInRange(100, 300))
     }
 
@@ -86,7 +95,7 @@ class Sumo : BotBase("/play duels_sumo_duel") {
     }
 
     override fun onFoundOpponent() {
-        if (StateManager.state == StateManager.States.PLAYING) {
+        if (StateManager.state == StateManager.States.PLAYING && mc.thePlayer != null && opponent() != null) {
             Mouse.startTracking()
         }
     }
@@ -103,7 +112,7 @@ class Sumo : BotBase("/play duels_sumo_duel") {
 
     fun nearEdge(distance: Float): Boolean {
         if (mc.thePlayer == null) return false
-        return (rightEdge(distance) || leftEdge(distance) || WorldUtils.airInBack(mc.thePlayer, distance))
+        return (WorldUtils.airOnRight(mc.thePlayer, distance) || WorldUtils.airOnLeft(mc.thePlayer, distance) || WorldUtils.airInBack(mc.thePlayer, distance))
     }
 
     fun opponentNearEdge(distance: Float): Boolean {
@@ -118,10 +127,12 @@ class Sumo : BotBase("/play duels_sumo_duel") {
                 Movement.clearAll()
                 Combat.stopRandomStrafe()
             }
+            Mouse.stopTracking()
+            Mouse.stopLeftAC()
             return
         }
 
-        opponentOffEdge = WorldUtils.entityOffEdge(opponent()!!) || (opponentOffEdge && EntityUtils.getDistanceNoY(mc.thePlayer, opponent()!!) > 17) // fixed the bot crashing basically :sob:
+        opponentOffEdge = WorldUtils.entityOffEdge(opponent()!!) || (opponentOffEdge && EntityUtils.getDistanceNoY(mc.thePlayer, opponent()!!) > 17)
 
         if (!opponentOffEdge && StateManager.state == StateManager.States.PLAYING) {
             if (!mc.thePlayer.isSprinting) {
@@ -132,36 +143,95 @@ class Sumo : BotBase("/play duels_sumo_duel") {
 
             val distance = EntityUtils.getDistanceNoY(mc.thePlayer, opponent()!!)
 
-            val currentAttackThreshold = RandomUtils.randomDoubleInRange(minAttackDistance, maxAttackDistance)
-
-            if (distance > currentAttackThreshold) {
+            if (distance > maxAttackDistanceConfigurable) {
                 Mouse.stopLeftAC()
             } else {
                 Mouse.startLeftAC()
             }
 
-            Combat.stopRandomStrafe()
+            var performingJump = false
 
             val jumpDistanceThreshold = RandomUtils.randomDoubleInRange(5.5, 7.0)
             if (canDistanceJump && distance >= jumpDistanceThreshold && mc.thePlayer.onGround && !WorldUtils.airInFront(mc.thePlayer, 3f) && !tapping) {
-                Movement.clearLeftRight()
+                Movement.clearLeftRight(); Combat.stopRandomStrafe()
                 Movement.startForward()
                 Movement.singleJump(RandomUtils.randomIntInRange(100, 150))
                 canDistanceJump = false
                 TimeUtils.setTimeout(fun() { canDistanceJump = true }, RandomUtils.randomIntInRange(500, 1000))
-            } else {
-                if (combo >= 3 && distance >= 3.2 && distance < jumpDistanceThreshold - 0.5 && mc.thePlayer.onGround && !nearEdge(4f) && !WorldUtils.airInFront(mc.thePlayer, 3f) && !tapping) {
-                    Movement.clearLeftRight()
-                    Movement.singleJump(RandomUtils.randomIntInRange(100, 150))
+                performingJump = true
+            }
+
+            if (!performingJump && combo >= 3 && distance >= 3.2 && distance < (jumpDistanceThreshold - 0.5)  && mc.thePlayer.onGround && !nearEdge(4f) && !WorldUtils.airInFront(mc.thePlayer, 3f) && !tapping) {
+                Movement.clearLeftRight(); Combat.stopRandomStrafe()
+                Movement.singleJump(RandomUtils.randomIntInRange(100, 150))
+                performingJump = true
+            }
+
+
+            if (!performingJump) {
+                val movePriority = arrayListOf(0, 0)
+                var clearStrafingInputs = false
+                var engageRandomStrafe = false
+
+                if (distance <= STRAFE_MIN_DISTANCE_OPPONENT_OLD) {
+                    clearStrafingInputs = true
+                } else if (combo >= MIN_COMBO_TO_CLEAR_STRAFE_OLD) {
+                    clearStrafingInputs = true
                 }
+
+                if (!clearStrafingInputs && !tapping) {
+                    val le = WorldUtils.distanceToLeftEdge(mc.thePlayer)
+                    val re = WorldUtils.distanceToRightEdge(mc.thePlayer)
+                    val diff = abs(le - re)
+
+                    if (diff > STRAFE_EDGE_DIFFERENCE_THRESHOLD_OLD) {
+                        if (le < re) {
+                            movePriority[1] += 5
+                        } else if (re < le) {
+                            movePriority[0] += 5
+                        } else {
+                            engageRandomStrafe = true
+                        }
+                    } else {
+                        engageRandomStrafe = true
+                    }
+                }
+
+                if (clearStrafingInputs) {
+                    Combat.stopRandomStrafe()
+                    Movement.clearLeftRight()
+                } else if (!tapping) {
+                    if (engageRandomStrafe) {
+                        Movement.clearLeftRight()
+                        Combat.startRandomStrafe(900, 1400)
+                    } else {
+                        Combat.stopRandomStrafe()
+                        if (movePriority[0] > movePriority[1]) {
+                            Movement.stopRight()
+                            Movement.startLeft()
+                        } else if (movePriority[1] > movePriority[0]) {
+                            Movement.stopLeft()
+                            Movement.startRight()
+                        } else {
+                            Movement.clearLeftRight()
+                            if (RandomUtils.randomBool()) {
+                                Movement.startLeft()
+                            } else {
+                                Movement.startRight()
+                            }
+                        }
+                    }
+                } else if (tapping && !clearStrafingInputs) {
+                    Combat.stopRandomStrafe()
+                    Movement.clearLeftRight()
+                }
+
 
                 if (!tapping) {
                     if (distance < 1.2) {
                         Movement.stopForward()
                     } else {
-                        if (!WorldUtils.airInFront(mc.thePlayer, 1.75f) || !mc.thePlayer.onGround) {
-                            Movement.startForward()
-                        }
+                        Movement.startForward()
                     }
                 }
 
@@ -169,12 +239,14 @@ class Sumo : BotBase("/play duels_sumo_duel") {
                     Movement.startSneaking()
                     Movement.stopForward()
                     Movement.clearLeftRight()
+                    Combat.stopRandomStrafe()
                 } else {
                     Movement.stopSneaking()
                 }
 
                 if (WorldUtils.airInBack(mc.thePlayer, 2.0f) && mc.thePlayer.onGround) {
                     Movement.clearLeftRight()
+                    Combat.stopRandomStrafe()
                     if (!tapping) {
                         Movement.startForward()
                     }
@@ -186,18 +258,15 @@ class Sumo : BotBase("/play duels_sumo_duel") {
                 if (Movement.right() && WorldUtils.airOnRight(mc.thePlayer, 1.5f) && mc.thePlayer.onGround) {
                     Movement.stopRight()
                 }
-
-                if (!tapping &&
-                    !(WorldUtils.airInBack(mc.thePlayer, 2.0f) && mc.thePlayer.onGround) &&
-                    !(Movement.left() && WorldUtils.airOnLeft(mc.thePlayer, 1.5f) && mc.thePlayer.onGround) &&
-                    !(Movement.right() && WorldUtils.airOnRight(mc.thePlayer, 1.5f) && mc.thePlayer.onGround)
-                ) {
-                }
             }
+
         } else {
             Mouse.stopLeftAC()
             Combat.stopRandomStrafe()
             Mouse.stopTracking()
+            if (StateManager.state == StateManager.States.PLAYING && opponentOffEdge) {
+                Movement.clearAll()
+            }
         }
     }
 }
