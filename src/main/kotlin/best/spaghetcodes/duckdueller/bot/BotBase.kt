@@ -301,10 +301,15 @@ open class BotBase(val queueCommand: String, val quickRefresh: Int = 10000) {
 
                 val distance = EntityUtils.getDistanceNoY(mc.thePlayer, opponent)
 
-                if (distance > 5 && (combo != 0 || opponentCombo != 0)) {
-                    combo = 0
-                    opponentCombo = 0
-                    ChatUtils.info("combo reset")
+                val comboResetEnabled = DuckDueller.config?.enableComboResetByDistance ?: true
+                val comboResetDistValue = DuckDueller.config?.comboResetDistance ?: 5
+
+                if (comboResetEnabled) {
+                    if (distance > comboResetDistValue && (combo != 0 || opponentCombo != 0)) {
+                        combo = 0
+                        opponentCombo = 0
+                        ChatUtils.info("combo reset")
+                    }
                 }
             }
         }

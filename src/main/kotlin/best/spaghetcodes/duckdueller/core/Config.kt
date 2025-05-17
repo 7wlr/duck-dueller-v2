@@ -38,10 +38,10 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
     val lobbyMovement = true
 
     @Property(
-    type = PropertyType.SWITCH,
-    name = "Disable Chat Messages",
-    description = "When this is enabled, the bot will not send any chat messages.",
-    category = "General",
+        type = PropertyType.SWITCH,
+        name = "Disable Chat Messages",
+        description = "When this is enabled, the bot will not send any chat messages.",
+        category = "General",
     )
     val disableChatMessages = false
 
@@ -196,6 +196,25 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
         increment = 1
     )
     val maxDistanceAttack = 5
+
+    @Property(
+        type = PropertyType.SWITCH,
+        name = "Enable Combo Reset by Distance",
+        description = "Reset combo if the distance to the opponent exceeds a certain value.",
+        category = "Combat"
+    )
+    val enableComboResetByDistance = true
+
+    @Property(
+        type = PropertyType.NUMBER,
+        name = "Combo Reset Distance",
+        description = "Distance (blocks) at which the combo will reset if 'Enable Combo Reset by Distance' is ON. Default is 5.",
+        category = "Combat",
+        min = 1,
+        max = 20,
+        increment = 1
+    )
+    val comboResetDistance = 5
 
     /*
         Auto GG
@@ -402,6 +421,8 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
 
         addDependency("startMessage", "sendStartMessage")
         addDependency("startMessageDelay", "sendStartMessage")
+
+        addDependency("comboResetDistance", "enableComboResetByDistance")
 
 
         registerListener<Int>("currentBot") { uiAttemptedValue ->
