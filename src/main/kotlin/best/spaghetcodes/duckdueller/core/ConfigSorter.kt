@@ -14,6 +14,7 @@ class ConfigSorter : SortingBehavior() {
         "Webhook",
         "Misc",
         "HUD",
+        "Camera",
         "Replay Clearing"
     )
 

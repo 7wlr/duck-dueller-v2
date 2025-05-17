@@ -7,12 +7,12 @@ import best.spaghetcodes.duckdueller.bot.player.Mouse
 import best.spaghetcodes.duckdueller.commands.ConfigCommand
 import best.spaghetcodes.duckdueller.core.Config
 import best.spaghetcodes.duckdueller.core.KeyBindings
+import net.minecraftforge.common.MinecraftForge
 import best.spaghetcodes.duckdueller.events.packet.PacketListener
 import best.spaghetcodes.duckdueller.utils.ChatUtils
 import com.google.gson.Gson
 import net.minecraft.client.Minecraft
 import net.minecraft.util.EnumChatFormatting
-import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.fml.common.Mod
 import net.minecraftforge.fml.common.event.FMLInitializationEvent
 
@@ -106,6 +106,7 @@ class DuckDueller {
             KeyBindings.register()
             MinecraftForge.EVENT_BUS.register(this)
             MinecraftForge.EVENT_BUS.register(PacketListener())
+            MinecraftForge.EVENT_BUS.register(best.spaghetcodes.duckdueller.bot.player.Camera)
             MinecraftForge.EVENT_BUS.register(StateManager)
             MinecraftForge.EVENT_BUS.register(Mouse)
             MinecraftForge.EVENT_BUS.register(LobbyMovement)

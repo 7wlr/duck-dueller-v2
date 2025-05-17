@@ -121,6 +121,74 @@ class Config : Vigilant(File(DuckDueller.configLocation), sortingBehavior = Conf
     )
     var boostingRequeueDelay = 250
 
+    /*
+    Camera
+    */
+
+    @Property(
+        type = PropertyType.SWITCH,
+        name = "Enable Custom Camera",
+        description = "Enable a custom third-person camera view for supported bots (these are the default settings lower your FOV and press F5) (e.g., Sumo, SumoBoost). Activates on game join.",
+        category = "Camera"
+    )
+    var enableCustomCamera = false
+
+    @Property(
+        type = PropertyType.DECIMAL_SLIDER,
+        name = "Camera Offset X",
+        description = "Horizontal offset from player's view. Positive: right, Negative: left.",
+        category = "Camera",
+        minF = -10.0f,
+        maxF = 10.0f
+    )
+    var cameraOffsetX = 0.5f
+
+    @Property(
+        type = PropertyType.DECIMAL_SLIDER,
+        name = "Camera Offset Y (from eye)",
+        description = "Vertical offset from player's eye level. Positive: up, Negative: down.",
+        category = "Camera",
+        minF = -10.0f,
+        maxF = 10.0f
+    )
+    var cameraOffsetY = -5.0f
+
+    @Property(
+        type = PropertyType.DECIMAL_SLIDER,
+        name = "Camera Offset Z",
+        description = "Depth offset from player's view. Positive: behind, Negative: in front.",
+        category = "Camera",
+        minF = -15.0f,
+        maxF = 15.0f
+    )
+    var cameraOffsetZ = 5.0f
+
+    @Property(
+        type = PropertyType.DECIMAL_SLIDER,
+        name = "Camera Pitch",
+        description = "Absolute pitch of the custom camera (-90 to 90 degrees).",
+        category = "Camera",
+        minF = -90.0f,
+        maxF = 90.0f
+    )
+    var cameraPitch = 40.0f
+
+    @Property(
+        type = PropertyType.DECIMAL_SLIDER,
+        name = "Camera Yaw",
+        description = "Absolute yaw of the custom camera (-180 to 180 degrees).",
+        category = "Camera",
+        minF = -180.0f,
+        maxF = 180.0f
+    )
+    var cameraYaw = -180.0f
+
+
+
+    /*
+    replay clearing
+    */
+
     @Property(
         type = PropertyType.SWITCH,
         name = "Enable Replay Clearing Mode",

@@ -6,6 +6,7 @@ import best.spaghetcodes.duckdueller.bot.StateManager
 import best.spaghetcodes.duckdueller.bot.player.Combat
 import best.spaghetcodes.duckdueller.bot.player.LobbyMovement
 import best.spaghetcodes.duckdueller.bot.player.Mouse
+import best.spaghetcodes.duckdueller.bot.player.Camera
 import best.spaghetcodes.duckdueller.bot.player.Movement
 import best.spaghetcodes.duckdueller.utils.*
 import kotlin.math.abs
@@ -59,6 +60,9 @@ class Sumo : BotBase("/play duels_sumo_duel") {
         tapping = false
         opponentOffEdge = false
         tap50 = false
+        if (DuckDueller.config?.enableCustomCamera == true) {
+            Camera.enable()
+        }
     }
 
     override fun onGameEnd() {
