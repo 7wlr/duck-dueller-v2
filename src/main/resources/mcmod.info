@@ -1,14 +1,14 @@
 [
     {
-        "modid": "duckdueller",
-        "name": "DuckDueller",
+        "modid": "keystrokesmod",
+        "name": "WLR",
         "description": "Hypixel Duels Bot",
         "version": "${version}",
-        "mcversion": "${mcversion}",
+        "mcversion": "1.8.9",
         "url": "",
         "updateUrl": "",
         "authorList": [
-            "HumanDuck23"
+            "7wlr"
         ],
         "credits": "",
         "logoFile": "",

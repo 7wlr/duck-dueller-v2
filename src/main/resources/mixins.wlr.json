@@ -1,0 +1,10 @@
+{
+  "compatibilityLevel": "JAVA_8",
+  "package": "bot.ivan.WLR.mixins",
+  "refmap": "mixins.WLR.refmap.json",
+  "mixins": [
+    "MixinModList",
+    "MixinEffectRenderer"
+  ],
+  "verbose": true
+}
