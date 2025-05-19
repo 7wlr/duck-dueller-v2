@@ -1,7 +1,6 @@
 package bot.seven.WLR.gui.elements
 
 import bot.seven.WLR.gui.GuiColors
-import net.minecraft.client.gui.Gui
 import net.minecraft.client.gui.ScaledResolution
 import org.lwjgl.opengl.GL11
 import kotlin.math.max
@@ -9,129 +8,196 @@ import kotlin.math.min
 
 class Dropdown(
     id: Int, x: Int, y: Int, width: Int,
+    height: Int = MODERN_DROPDOWN_HEIGHT,
     label: String,
     val options: List<String>,
     initialSelectedIndex: Int,
     val onSelectionChanged: (Int, String) -> Unit
-) : GuiComponentBase(id, x, y, width, 20, label) {
+) : GuiComponentBase(id, x, y, width, height, label) {
 
-    var selectedIndex: Int = initialSelectedIndex.coerceIn(0, options.size -1)
-        private set
+    var selectedIndex: Int = -1; private set
     var isOpen: Boolean = false
-    val optionHeight = 16
+    val optionHeight = 22
     val maxDisplayableOptions = 5
 
-    private var scrollYOptions: Float = 0f
-    private var maxScrollYOptions: Float = 0f
-    private var isDraggingOptionScrollbar: Boolean = false
-    private val scrollbarWidth = 6
+    private var scrollYOptions: Float = 0f; private var maxScrollYOptions: Float = 0f
+    private var isDraggingScrollbar: Boolean = false
+    private val scrollbarWidth = 10
     private var needsScrollbar: Boolean = false
-
     private var lastMouseYForScrollDrag: Int = 0
 
+    private val cornerRadius = MODERN_CORNER_RADIUS
+    private val listCornerRadius = 3f
+    private val textPaddingX = MODERN_ELEMENT_PADDING_X
+    private val textPaddingY = (this.height - fontRenderer.FONT_HEIGHT) / 2 + 1
+
+    init {
+        val idx = if (options.isEmpty()) -1 else initialSelectedIndex.coerceIn(0, options.size -1)
+        setSelected(idx, false)
+    }
+
     fun setSelected(index: Int, notify: Boolean = true) {
-        val oldIndex = selectedIndex
-        selectedIndex = index.coerceIn(0, options.indices.lastOrNull() ?: 0)
-        if (notify && oldIndex != selectedIndex && options.isNotEmpty() && selectedIndex < options.size && selectedIndex >= 0) {
+        val old = selectedIndex
+        selectedIndex = if (options.isEmpty()) -1 else index.coerceIn(0, options.indices.lastOrNull() ?: -1)
+        if (notify && old != selectedIndex && selectedIndex != -1 && selectedIndex < options.size) {
             onSelectionChanged(selectedIndex, options[selectedIndex])
         }
     }
 
-    fun getSelectedOption(): String? = if (options.isNotEmpty()) options.getOrNull(selectedIndex) else "No options"
+    fun getSelectedOption(): String? = if (options.isNotEmpty() && selectedIndex != -1) options.getOrNull(selectedIndex) else null
 
     private fun getDisplayableOptionCount(): Int = min(options.size, maxDisplayableOptions)
-    private fun getDropdownListVisibleHeight(): Int = getDisplayableOptionCount() * optionHeight
+    private fun getListVisibleHeight(): Int = getDisplayableOptionCount() * optionHeight
     private fun getTotalOptionsContentHeight(): Int = options.size * optionHeight
 
     override fun drawComponent(mouseX: Int, mouseY: Int, partialTicks: Float) {
-        val mainBoxHovered = enabled && mouseX >= this.x && mouseY >= this.y && mouseX < this.x + this.width && mouseY < this.y + this.height
-        this.hovered = mainBoxHovered
-
+        super.drawComponent(mouseX, mouseY, partialTicks)
         if (!visible) return
 
-        val mainBoxColor = when {
-            !enabled -> GuiColors.COMPONENT_BACKGROUND_DISABLED
-            mainBoxHovered && !isOpen -> GuiColors.COMPONENT_BACKGROUND_HOVER
-            else -> GuiColors.COMPONENT_BACKGROUND
-        }
-        val textColor = if (enabled) GuiColors.TEXT_PRIMARY else GuiColors.TEXT_DISABLED
+        val mainBoxBg: Int
+        val mainBoxBorder: Int
+        val currentTextColor = if (enabled) GuiColors.TEXT_PRIMARY else GuiColors.TEXT_DISABLED
         val arrowColor = if (enabled) GuiColors.DROPDOWN_ARROW else GuiColors.TEXT_DISABLED
 
-        Gui.drawRect(x, y, x + width, y + height, mainBoxColor)
-        Gui.drawRect(x, y, x + width, y + 1, GuiColors.COMPONENT_BORDER)
-        Gui.drawRect(x, y + height - 1, x + width, y + height, GuiColors.COMPONENT_BORDER)
-        Gui.drawRect(x, y, x + 1, y + height, GuiColors.COMPONENT_BORDER)
-        Gui.drawRect(x + width - 1, y, x + width, y + height, GuiColors.COMPONENT_BORDER)
+        when {
+            !enabled -> {
+                mainBoxBg = GuiColors.COMPONENT_BACKGROUND_DISABLED
+                mainBoxBorder = GuiColors.MODERN_UI_ELEMENT_BORDER
+            }
+            isOpen -> {
+                mainBoxBg = GuiColors.COMPONENT_BACKGROUND
+                mainBoxBorder = GuiColors.PRIMARY_RED_BRIGHT
+            }
+            this.hovered -> {
+                mainBoxBg = GuiColors.COMPONENT_BACKGROUND_HOVER
+                mainBoxBorder = GuiColors.PRIMARY_RED
+            }
+            else -> {
+                mainBoxBg = GuiColors.COMPONENT_BACKGROUND
+                mainBoxBorder = GuiColors.MODERN_UI_ELEMENT_BORDER
+            }
+        }
+
+        GuiDrawingUtils.drawRoundedRectDropShadow(
+            x.toFloat(), y.toFloat(), width.toFloat(), height.toFloat(), cornerRadius,
+            GuiColors.SUBTLE_SHADOW_COLOR,
+            SHADOW_OFFSET_X, SHADOW_OFFSET_Y
+        )
+
+        GuiDrawingUtils.drawModernRoundedRect(
+            x.toFloat(), y.toFloat(), width.toFloat(), height.toFloat(), cornerRadius,
+            mainBoxBg,
+            mainBoxBorder,
+            GuiColors.TRANSPARENT_TEXT_PRIMARY_VERY_LIGHT,
+            GuiColors.TRANSPARENT_BLACK_VERY_LIGHT,
+            MODERN_BORDER_THICKNESS
+        )
 
         val selectedText = getSelectedOption() ?: "Select..."
-        fontRenderer.drawString(selectedText, x + 5, y + (height - fontRenderer.FONT_HEIGHT) / 2 + 1, textColor)
-
+        fontRenderer.drawString(selectedText, x + textPaddingX, y + textPaddingY, currentTextColor)
         val arrow = if (isOpen) "▲" else "▼"
-        fontRenderer.drawString(arrow, x + width - fontRenderer.getStringWidth(arrow) - 5, y + (height - fontRenderer.FONT_HEIGHT) / 2 + 1, arrowColor)
+        fontRenderer.drawString(arrow, x + width - fontRenderer.getStringWidth(arrow) - textPaddingX, y + textPaddingY, arrowColor)
 
-        drawTopLabel()
+        drawTopLabel(yOffset = -3)
 
         if (isOpen && enabled) {
-            val totalContentHeight = getTotalOptionsContentHeight()
-            val visibleListHeight = getDropdownListVisibleHeight()
-            needsScrollbar = totalContentHeight > visibleListHeight
+            val totalContentH = getTotalOptionsContentHeight()
+            val listVisH = getListVisibleHeight()
+            needsScrollbar = totalContentH > listVisH
+            val listTopY = this.y + this.height
+            val listDrawWidth = this.width
+            val actualListBorderThickness = MODERN_BORDER_THICKNESS
 
-            val dropdownRenderY = y + height
-            val listRenderWidth = if (needsScrollbar) width - scrollbarWidth else width
+            GuiDrawingUtils.drawRoundedRectDropShadow(
+                x.toFloat(), listTopY.toFloat(),
+                width.toFloat(), listVisH.toFloat(),
+                listCornerRadius,
+                GuiColors.SUBTLE_SHADOW_COLOR,
+                SHADOW_OFFSET_X, SHADOW_OFFSET_Y,
+                1f
+            )
+            GuiDrawingUtils.drawModernRoundedRect(
+                x.toFloat(), listTopY.toFloat(),
+                width.toFloat(), listVisH.toFloat(),
+                listCornerRadius,
+                GuiColors.DROPDOWN_BACKGROUND_OPEN,
+                GuiColors.MODERN_UI_ELEMENT_BORDER,
+                GuiColors.TRANSPARENT_TEXT_PRIMARY_VERY_LIGHT,
+                GuiColors.TRANSPARENT_BLACK_VERY_LIGHT,
+                actualListBorderThickness
+            )
 
-            Gui.drawRect(x, dropdownRenderY, x + width, dropdownRenderY + visibleListHeight, GuiColors.DROPDOWN_BACKGROUND_OPEN)
-            Gui.drawRect(x, dropdownRenderY, x + 1, dropdownRenderY + visibleListHeight, GuiColors.COMPONENT_BORDER)
-            Gui.drawRect(x + width - 1, dropdownRenderY, x + width, dropdownRenderY + visibleListHeight, GuiColors.COMPONENT_BORDER)
-            Gui.drawRect(x, dropdownRenderY + visibleListHeight - 1, x + width, dropdownRenderY + visibleListHeight, GuiColors.COMPONENT_BORDER)
-
-            val scaledResolution = ScaledResolution(mc)
-            val scaleFactor = scaledResolution.scaleFactor
+            val sr = ScaledResolution(mc)
+            val borderIntScissor = actualListBorderThickness.toInt()
+            val scissorListDrawWidth = if (needsScrollbar) listDrawWidth - scrollbarWidth else listDrawWidth
 
             GL11.glEnable(GL11.GL_SCISSOR_TEST)
+            val scissorY = sr.scaledHeight - (listTopY + listVisH - borderIntScissor)
             GL11.glScissor(
-                (this.x * scaleFactor),
-                (scaledResolution.scaledHeight - (dropdownRenderY + visibleListHeight)) * scaleFactor,
-                listRenderWidth * scaleFactor,
-                visibleListHeight * scaleFactor
+                (x + borderIntScissor) * sr.scaleFactor,
+                scissorY * sr.scaleFactor,
+                (scissorListDrawWidth - 2 * borderIntScissor) * sr.scaleFactor,
+                (listVisH - 2 * borderIntScissor) * sr.scaleFactor
             )
 
             for (i in options.indices) {
-                val optionTopYAbsolute = i * optionHeight
-                val optionTopYOnScreen = dropdownRenderY + optionTopYAbsolute - scrollYOptions.toInt()
+                val optTopAbs = i * optionHeight
+                val optTopScreen = listTopY + optTopAbs - scrollYOptions.toInt()
 
-                if (optionTopYOnScreen + optionHeight < dropdownRenderY || optionTopYOnScreen > dropdownRenderY + visibleListHeight) {
-                    continue
-                }
+                if (optTopScreen + optionHeight < listTopY || optTopScreen > listTopY + listVisH) continue
 
-                val optionTextY = optionTopYOnScreen + (optionHeight - fontRenderer.FONT_HEIGHT) / 2 + 1
-                val isOptionHovered = mouseX >= x && mouseX < x + listRenderWidth &&
-                        mouseY >= optionTopYOnScreen && mouseY < optionTopYOnScreen + optionHeight &&
-                        mouseY >= dropdownRenderY && mouseY < dropdownRenderY + visibleListHeight
+                val optTextY = optTopScreen + (optionHeight - fontRenderer.FONT_HEIGHT) / 2 + 1
+                val isOptHover = mouseX >= x + borderIntScissor && mouseX < x + scissorListDrawWidth - borderIntScissor &&
+                        mouseY >= max(listTopY + borderIntScissor, optTopScreen) &&
+                        mouseY < min(listTopY + listVisH - borderIntScissor, optTopScreen + optionHeight)
 
-                val optionBgColor = when {
-                    isOptionHovered -> GuiColors.DROPDOWN_ITEM_HOVER_BG
+                val optBg = when {
+                    isOptHover -> GuiColors.DROPDOWN_ITEM_HOVER_BG
                     i == selectedIndex -> GuiColors.DROPDOWN_ITEM_SELECTED_BG
                     else -> 0
                 }
-                if (optionBgColor != 0) {
-                    Gui.drawRect(x + 1, optionTopYOnScreen, x + listRenderWidth -1 , optionTopYOnScreen + optionHeight, optionBgColor)
+
+                if (optBg != 0) {
+                    GuiDrawingUtils.drawRoundedRect(
+                        (x + borderIntScissor + 1f), optTopScreen.toFloat(),
+                        (scissorListDrawWidth - 2 * borderIntScissor - 2f), optionHeight.toFloat(),
+                        1f,
+                        optBg
+                    )
                 }
-                fontRenderer.drawString(options[i], x + 5, optionTextY, GuiColors.DROPDOWN_ITEM_TEXT)
+                fontRenderer.drawString(options[i], x + textPaddingX, optTextY, GuiColors.DROPDOWN_ITEM_TEXT)
             }
             GL11.glDisable(GL11.GL_SCISSOR_TEST)
 
             if (needsScrollbar) {
-                maxScrollYOptions = max(0f, (totalContentHeight - visibleListHeight).toFloat())
+                maxScrollYOptions = max(0f, (totalContentH - listVisH).toFloat())
                 scrollYOptions = scrollYOptions.coerceIn(0f, maxScrollYOptions)
-
-                val scrollbarActualX = x + width - scrollbarWidth
-                Gui.drawRect(scrollbarActualX, dropdownRenderY, scrollbarActualX + scrollbarWidth, dropdownRenderY + visibleListHeight, GuiColors.SCROLLBAR_BG)
+                val sbX = x + width - scrollbarWidth - borderIntScissor
+                GuiDrawingUtils.drawRoundedRect(
+                    sbX.toFloat(),
+                    (listTopY + borderIntScissor).toFloat(),
+                    scrollbarWidth.toFloat(),
+                    (listVisH - 2 * borderIntScissor).toFloat(),
+                    2f,
+                    GuiColors.SCROLLBAR_BG
+                )
 
                 if (maxScrollYOptions > 0) {
-                    val thumbHeightRatio = (visibleListHeight.toFloat() / totalContentHeight.toFloat()).coerceIn(0.1f, 1f)
-                    val thumbHeight = max(10, (visibleListHeight * thumbHeightRatio).toInt())
-                    val thumbY = dropdownRenderY + ((visibleListHeight - thumbHeight) * (scrollYOptions / maxScrollYOptions)).toInt()
-                    Gui.drawRect(scrollbarActualX + 1, thumbY, scrollbarActualX + scrollbarWidth - 1, thumbY + thumbHeight, GuiColors.SCROLLBAR_THUMB)
+                    val thumbHRatio = (listVisH.toFloat() / totalContentH.toFloat()).coerceIn(0.1f, 1f)
+                    val thumbH = max(15, (listVisH * thumbHRatio).toInt())
+                    val trackDrawableHeight = listVisH - 2 * borderIntScissor
+                    val thumbActualY = (listTopY + borderIntScissor) + ((trackDrawableHeight - thumbH) * (scrollYOptions / maxScrollYOptions))
+
+                    val thumbHover = mouseX >= sbX && mouseX < sbX + scrollbarWidth &&
+                            mouseY >= thumbActualY && mouseY < thumbActualY + thumbH
+                    GuiDrawingUtils.drawRoundedRect(
+                        (sbX + 1f),
+                        thumbActualY,
+                        (scrollbarWidth - 2f),
+                        thumbH.toFloat(),
+                        2f,
+                        if (thumbHover) GuiColors.MODERN_SCROLLBAR_THUMB_HOVER else GuiColors.SCROLLBAR_THUMB
+                    )
                 }
             } else {
                 scrollYOptions = 0f
@@ -141,61 +207,78 @@ class Dropdown(
     }
 
     override fun mouseClicked(mouseX: Int, mouseY: Int, mouseButton: Int): Boolean {
-        if (!enabled || !visible) return false
+        if (!enabled || !visible || mouseButton != 0) return false
 
-        if (mouseButton == 0) {
-            if (mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height) {
-                isOpen = !isOpen
-                if (isOpen) {
-                    scrollYOptions = 0f
-                    if (options.isNotEmpty() && selectedIndex >= 0 && selectedIndex < options.size) {
-                        val selectedOptionTopY = selectedIndex * optionHeight
-                        val selectedOptionBottomY = selectedOptionTopY + optionHeight
-                        val visibleListHeight = getDropdownListVisibleHeight()
-                        if (selectedOptionTopY < scrollYOptions) {
-                            scrollYOptions = selectedOptionTopY.toFloat()
-                        } else if (selectedOptionBottomY > scrollYOptions + visibleListHeight) {
-                            scrollYOptions = (selectedOptionBottomY - visibleListHeight).toFloat()
-                        }
-                        scrollYOptions = scrollYOptions.coerceIn(0f, maxScrollYOptions)
-                    }
-                }
-                mc.soundHandler.playSound(net.minecraft.client.audio.PositionedSoundRecord.create(net.minecraft.util.ResourceLocation("gui.button.press"), 1.0F))
-                return true
-            }
-
+        if (mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height) {
+            isOpen = !isOpen
             if (isOpen) {
-                val dropdownRenderY = y + height
-                val visibleListHeight = getDropdownListVisibleHeight()
+                if (options.isNotEmpty() && selectedIndex != -1 && selectedIndex < options.size) {
+                    val selTop = selectedIndex * optionHeight
+                    val selBot = selTop + optionHeight
+                    val visH = getListVisibleHeight()
+                    if (selTop < scrollYOptions) scrollYOptions = selTop.toFloat()
+                    else if (selBot > scrollYOptions + visH) scrollYOptions = (selBot - visH).toFloat()
 
-                if (needsScrollbar) {
-                    val scrollbarActualX = x + width - scrollbarWidth
-                    if (mouseX >= scrollbarActualX && mouseX < scrollbarActualX + scrollbarWidth &&
-                        mouseY >= dropdownRenderY && mouseY < dropdownRenderY + visibleListHeight) {
-                        isDraggingOptionScrollbar = true
-                        lastMouseYForScrollDrag = mouseY
-                        val clickRatio = (mouseY - dropdownRenderY).toFloat() / visibleListHeight.toFloat()
-                        scrollYOptions = (maxScrollYOptions * clickRatio).coerceIn(0f, maxScrollYOptions)
-                        return true
+                    if(needsScrollbar) {
+                        maxScrollYOptions = max(0f, (getTotalOptionsContentHeight() - visH).toFloat())
+                        scrollYOptions = scrollYOptions.coerceIn(0f, maxScrollYOptions)
+                    } else {
+                        scrollYOptions = 0f
                     }
+                } else {
+                    scrollYOptions = 0f
                 }
+            }
+            mc.soundHandler.playSound(net.minecraft.client.audio.PositionedSoundRecord.create(net.minecraft.util.ResourceLocation("gui.button.press"), 1.0F))
+            return true
+        }
 
-                val listRenderWidth = if (needsScrollbar) width - scrollbarWidth else width
-                if (mouseX >= x && mouseX < x + listRenderWidth && mouseY >= dropdownRenderY && mouseY < dropdownRenderY + visibleListHeight) {
-                    val mouseYInList = mouseY - dropdownRenderY
-                    val absoluteMouseYInOptions = mouseYInList + scrollYOptions
-                    val clickedOptionIndex = (absoluteMouseYInOptions / optionHeight).toInt()
+        if (isOpen) {
+            val listTopY = this.y + this.height
+            val listVisibleHeight = getListVisibleHeight()
+            val listBottomY = listTopY + listVisibleHeight
+            val actualListBorderThicknessInt = MODERN_BORDER_THICKNESS.toInt()
 
-                    if (clickedOptionIndex >= 0 && clickedOptionIndex < options.size) {
-                        setSelected(clickedOptionIndex)
-                        isOpen = false
-                        mc.soundHandler.playSound(net.minecraft.client.audio.PositionedSoundRecord.create(net.minecraft.util.ResourceLocation("gui.button.press"), 0.8F))
-                        return true
+            if (needsScrollbar) {
+                val sbX = x + width - scrollbarWidth - actualListBorderThicknessInt
+                if (mouseX >= sbX && mouseX < sbX + scrollbarWidth &&
+                    mouseY >= listTopY && mouseY < listBottomY) {
+                    isDraggingScrollbar = true
+                    lastMouseYForScrollDrag = mouseY
+                    val trackDrawableHeight = listVisibleHeight - 2 * actualListBorderThicknessInt
+                    if (trackDrawableHeight > 0) {
+                        val clickRatioInTrack = (mouseY - (listTopY + actualListBorderThicknessInt)).toFloat() / trackDrawableHeight.toFloat()
+                        scrollYOptions = (maxScrollYOptions * clickRatioInTrack).coerceIn(0f, maxScrollYOptions)
                     }
-                }
-                if (mouseX >= x && mouseX < x + width && mouseY >= dropdownRenderY && mouseY < dropdownRenderY + visibleListHeight) {
                     return true
                 }
+            }
+
+            val itemsAreaWidth = if (needsScrollbar) width - scrollbarWidth else width
+            if (mouseX >= x + actualListBorderThicknessInt && mouseX < x + itemsAreaWidth - actualListBorderThicknessInt &&
+                mouseY >= listTopY + actualListBorderThicknessInt && mouseY < listBottomY - actualListBorderThicknessInt) {
+
+                val mouseYInListContent = mouseY - (listTopY + actualListBorderThicknessInt)
+                val absoluteMouseYInOptions = mouseYInListContent + scrollYOptions
+                val clickedOptionIndex = (absoluteMouseYInOptions / optionHeight).toInt()
+
+                if (clickedOptionIndex >= 0 && clickedOptionIndex < options.size) {
+                    setSelected(clickedOptionIndex)
+                    isOpen = false
+                    mc.soundHandler.playSound(net.minecraft.client.audio.PositionedSoundRecord.create(net.minecraft.util.ResourceLocation("gui.button.press"), 0.8F))
+                    return true
+                }
+            }
+
+            if (mouseX >= x && mouseX < x + width && mouseY >= listTopY && mouseY < listBottomY) {
+                return true
+            }
+        }
+
+        if (isOpen) {
+            val totalDropdownHeight = this.height + if(isOpen) getListVisibleHeight() else 0
+            if (!(mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + totalDropdownHeight)) {
+                close()
             }
         }
         return false
@@ -203,34 +286,49 @@ class Dropdown(
 
     override fun mouseReleased(mouseX: Int, mouseY: Int, state: Int) {
         if (state == 0) {
-            isDraggingOptionScrollbar = false
+            isDraggingScrollbar = false
         }
     }
 
     override fun mouseClickMove(mouseX: Int, mouseY: Int, clickedMouseButton: Int, timeSinceLastClick: Long) {
-        if (isDraggingOptionScrollbar && clickedMouseButton == 0 && needsScrollbar && maxScrollYOptions > 0) {
-            val dropdownRenderY = y + height
-            val visibleListHeight = getDropdownListVisibleHeight()
-            val totalContentH = getTotalOptionsContentHeight()
-
+        if (isDraggingScrollbar && clickedMouseButton == 0 && needsScrollbar && maxScrollYOptions > 0) {
             val dy = mouseY - lastMouseYForScrollDrag
             lastMouseYForScrollDrag = mouseY
 
-            val scrollRatio = maxScrollYOptions / (visibleListHeight.toFloat() - (visibleListHeight.toFloat() * visibleListHeight.toFloat() / totalContentH.toFloat()).coerceIn(10f, visibleListHeight.toFloat()))
-            if (!scrollRatio.isNaN() && scrollRatio.isFinite() && scrollRatio != 0f) {
-                scrollYOptions += dy * scrollRatio
-            }
-            scrollYOptions = scrollYOptions.coerceIn(0f, maxScrollYOptions)
+            val trackDrawableHeight = getListVisibleHeight() - 2 * MODERN_BORDER_THICKNESS.toInt()
+            if (trackDrawableHeight <= 0) return
+
+            val scrollableDistance = getTotalOptionsContentHeight() - getListVisibleHeight()
+            if (scrollableDistance <= 0) return
+
+            val thumbHRatio = (getListVisibleHeight().toFloat() / getTotalOptionsContentHeight().toFloat()).coerceIn(0.1f, 1f)
+            val thumbH = max(15, (getListVisibleHeight() * thumbHRatio).toInt())
+            val draggableTrackSpace = trackDrawableHeight - thumbH
+
+            if (draggableTrackSpace <= 0) return
+
+            val scrollAmount = dy * (maxScrollYOptions / draggableTrackSpace.toFloat())
+
+            scrollYOptions = (scrollYOptions + scrollAmount).coerceIn(0f, maxScrollYOptions)
         }
     }
 
     fun handleMouseScroll(rawMouseX: Int, rawMouseY: Int, dWheel: Int): Boolean {
-        if (isOpen && enabled && visible && needsScrollbar) {
-            val dropdownRenderY = y + height
-            val visibleListHeight = getDropdownListVisibleHeight()
-            if (rawMouseX >= x && rawMouseX < x + width && rawMouseY >= dropdownRenderY && rawMouseY < dropdownRenderY + visibleListHeight) {
-                val scrollAmount = if (dWheel > 0) -optionHeight.toFloat() * 1.5f else optionHeight.toFloat() * 1.5f
-                scrollYOptions = (scrollYOptions + scrollAmount).coerceIn(0f, maxScrollYOptions)
+        if (isOpen && enabled && visible && options.isNotEmpty()) {
+            val listTopY = y + height
+            val listVisibleH = getListVisibleHeight()
+            val listBottomY = listTopY + listVisibleH
+
+            if (rawMouseX >= x && rawMouseX < x + width &&
+                rawMouseY >= listTopY && rawMouseY < listBottomY) {
+
+                if (getTotalOptionsContentHeight() <= listVisibleH) return false
+
+                maxScrollYOptions = max(0f, (getTotalOptionsContentHeight() - listVisibleH).toFloat())
+                val scrollAmountPerTick = optionHeight * 1.5f
+                val scrollDelta = if (dWheel > 0) -scrollAmountPerTick else scrollAmountPerTick
+
+                scrollYOptions = (scrollYOptions + scrollDelta).coerceIn(0f, maxScrollYOptions)
                 return true
             }
         }
@@ -240,7 +338,7 @@ class Dropdown(
     fun close() {
         if (isOpen) {
             isOpen = false
-            isDraggingOptionScrollbar = false
+            isDraggingScrollbar = false
         }
     }
 }

@@ -1,6 +1,6 @@
 [
     {
-        "modid": "keystrokesmod",
+        "modid": "wlr",
         "name": "WLR",
         "description": "Hypixel Duels Bot",
         "version": "${version}",
@@ -11,7 +11,7 @@
             "7wlr"
         ],
         "credits": "",
-        "logoFile": "",
+        "logoFile": "assets/wlr/textures/gui/logo.png",
         "screenshots": [],
         "dependencies": []
     }

@@ -2,11 +2,18 @@ package bot.seven.WLR.gui.elements
 
 import bot.seven.WLR.gui.GuiColors
 import net.minecraft.client.gui.Gui
+import net.minecraft.client.renderer.GlStateManager
+import net.minecraft.util.ResourceLocation
+import org.lwjgl.opengl.GL11
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
 class Slider(
-    id: Int, x: Int, y: Int, width: Int,
+    id: Int,
+    x: Int,
+    y: Int,
+    width: Int,
+    height: Int = MODERN_SLIDER_HEIGHT,
     label: String,
     initialValue: Float,
     private val minValue: Float,
@@ -14,43 +21,141 @@ class Slider(
     private val step: Float = 0.1f,
     private val displayFormat: (Float) -> String = { "%.2f".format(it) },
     val onValueChanged: (Float) -> Unit
-) : GuiComponentBase(id, x, y, width, 14, label) {
+) : GuiComponentBase(id, x, y, width, height, label) {
 
     private var currentValue: Float = initialValue
     private var valueOnDragStart: Float = initialValue
-
     private var isDragging: Boolean = false
-    private val sliderKnobWidth = 6
-    private val sliderKnobHeight = height
-    private val sliderTrackHeight = 2
 
-    private var visualKnobX: Float
-    private var targetKnobX: Float
-    private val KNOB_SMOOTH_FACTOR = 0.35f
+    private val knobVisualRadius: Float = MODERN_SLIDER_KNOB_RADIUS
+    private val trackHeightToUse: Float = MODERN_SLIDER_TRACK_HEIGHT
+    private val trackCornerRadius = trackHeightToUse / 2f
+
+    private var visualKnobCenterX: Float
+    private var targetKnobCenterX: Float
+    private val KNOB_SMOOTH_FACTOR = 0.25f
+
+    companion object {
+        private val KNOB_TEXTURE = ResourceLocation("wlr", "textures/gui/white_knob.png")
+    }
 
     init {
         internalSetValue(initialValue, false)
-        visualKnobX = calculateRawKnobX(this.currentValue)
-        targetKnobX = visualKnobX
+        targetKnobCenterX = calculateKnobCenterX(this.currentValue)
+        visualKnobCenterX = targetKnobCenterX
     }
 
-    private fun calculateRawKnobX(value: Float): Float {
+    private fun calculateKnobCenterX(value: Float): Float {
         val progress = if (maxValue - minValue == 0f) 0f else (value - minValue) / (maxValue - minValue)
-        return this.x + ((this.width - sliderKnobWidth) * progress)
+        val actualKnobRadius = if (knobVisualRadius > 0f) knobVisualRadius else 0.1f
+        val travelWidth = this.width - (2 * actualKnobRadius)
+        return this.x + actualKnobRadius + (if (travelWidth > 0) travelWidth * progress else 0f)
+    }
+
+    private fun getKnobClickableRadius(): Float = (if (knobVisualRadius > 0f) knobVisualRadius else 2f) + 3f
+
+    override fun drawComponent(mouseX: Int, mouseY: Int, partialTicks: Float) {
+        super.drawComponent(mouseX, mouseY, partialTicks)
+        if (!visible) return
+
+        val diff = targetKnobCenterX - visualKnobCenterX
+        visualKnobCenterX = if (abs(diff) > 0.001f) visualKnobCenterX + diff * KNOB_SMOOTH_FACTOR else targetKnobCenterX
+
+        val actualKnobRadius = if (knobVisualRadius > 0f) knobVisualRadius else 0.1f
+        val currentKnobRenderCenterX = visualKnobCenterX.coerceIn(x + actualKnobRadius, x + width - actualKnobRadius)
+        val knobRenderY = y + height / 2f
+
+        drawTopLabel(yOffset = -3)
+        val valueText = displayFormat(currentValue)
+        val valueColor = if (enabled) GuiColors.TEXT_ACCENT else GuiColors.TEXT_DISABLED
+        val valueTextWidth = fontRenderer.getStringWidth(valueText)
+        fontRenderer.drawString(
+            valueText,
+            x + width - valueTextWidth,
+            y - fontRenderer.FONT_HEIGHT - 7,
+            valueColor
+        )
+
+        val trackActualY = y + (height - trackHeightToUse) / 2f
+
+        GlStateManager.pushMatrix()
+        GlStateManager.disableTexture2D()
+        GlStateManager.enableBlend()
+        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO)
+        GlStateManager.disableAlpha()
+        GlStateManager.disableDepth()
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f)
+
+        val trackColorToUse = if (enabled) GuiColors.SLIDER_TRACK else GuiColors.COMPONENT_BACKGROUND_DISABLED
+        GuiDrawingUtils.drawRoundedRect(
+            x.toFloat(), trackActualY, width.toFloat(), trackHeightToUse,
+            trackCornerRadius, trackColorToUse
+        )
+
+        val filledWidth = currentKnobRenderCenterX - x
+        if (filledWidth > 0f) {
+            val filledTrackColorToUse = if (enabled) GuiColors.SLIDER_TRACK_FILLED else GuiColors.PRIMARY_RED_DARK
+            GuiDrawingUtils.drawRoundedRect(
+                x.toFloat(), trackActualY, filledWidth.coerceAtMost(width.toFloat()), trackHeightToUse,
+                trackCornerRadius, filledTrackColorToUse
+            )
+        }
+        GlStateManager.popMatrix()
+
+        if (knobVisualRadius <= 0f) return
+        val knobDiameter = (knobVisualRadius * 2).toInt()
+        if (knobDiameter <= 0) return
+
+        val knobCenterX = currentKnobRenderCenterX
+        val knobCenterY = knobRenderY
+
+        val isHoveringKnob = mouseX >= knobCenterX - knobVisualRadius &&
+                mouseX <= knobCenterX + knobVisualRadius &&
+                mouseY >= knobCenterY - knobVisualRadius &&
+                mouseY <= knobCenterY + knobVisualRadius
+
+        val scale = 0.85f
+
+        GlStateManager.pushMatrix()
+        GlStateManager.enableTexture2D()
+        GlStateManager.enableBlend()
+        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO)
+
+        mc.textureManager.bindTexture(KNOB_TEXTURE)
+
+        if (isHoveringKnob) {
+            GlStateManager.color(1.0f, 0.2f, 0.2f, 1.0f)
+        } else {
+            GlStateManager.color(1.0f, 0.0f, 0.0f, 1.0f)
+        }
+
+        GlStateManager.translate(knobCenterX, knobCenterY, 0f)
+        GlStateManager.scale(scale, scale, 1f)
+        GlStateManager.translate(-knobDiameter / 2f, -knobDiameter / 2f, 0f)
+
+        try {
+            Gui.drawModalRectWithCustomSizedTexture(
+                0, 0,
+                0f, 0f,
+                knobDiameter, knobDiameter,
+                14f, 14f
+            )
+        } catch (_: Throwable) { }
+
+        GlStateManager.popMatrix()
     }
 
     private fun internalSetValue(newValue: Float, notify: Boolean) {
         val oldValue = this.currentValue
         var tempValue = newValue.coerceIn(minValue, maxValue)
-
-        if (step > 0) {
+        if (step > 0f) {
+            val decimalPlaces = getDecimalPlaces(step)
             tempValue = (tempValue / step).roundToInt() * step
-            tempValue = String.format("%.${getDecimalPlaces(step)}f", tempValue).toFloat()
+            tempValue = String.format("%.${decimalPlaces}f", tempValue).replace(',', '.').toFloat()
         }
         this.currentValue = tempValue.coerceIn(minValue, maxValue)
-        this.targetKnobX = calculateRawKnobX(this.currentValue)
-
-        if (notify && (oldValue != this.currentValue || String.format("%.5f", oldValue) != String.format("%.5f", this.currentValue))) {
+        this.targetKnobCenterX = calculateKnobCenterX(this.currentValue)
+        if (notify && abs(oldValue - this.currentValue) > (step / 2.0f).coerceAtMost(0.00001f)) {
             onValueChanged(this.currentValue)
         }
     }
@@ -58,98 +163,62 @@ class Slider(
     fun setValue(newValue: Float) {
         internalSetValue(newValue, true)
         valueOnDragStart = currentValue
-        visualKnobX = targetKnobX
+        visualKnobCenterX = calculateKnobCenterX(this.currentValue)
+        targetKnobCenterX = visualKnobCenterX
     }
 
     private fun getDecimalPlaces(value: Float): Int {
-        val s = value.toString()
-        val dotIndex = s.indexOf('.')
-        return if (dotIndex < 0) 0 else s.length - dotIndex - 1
+        val s = value.toString().replace(',', '.')
+        val dot = s.indexOf('.')
+        return if (dot < 0) 0 else s.length - dot - 1
     }
 
     fun getCurrentValue(): Float = currentValue
 
-    override fun drawComponent(mouseX: Int, mouseY: Int, partialTicks: Float) {
-        super.drawComponent(mouseX, mouseY, partialTicks)
-        if (!visible) return
-
-        val diff = targetKnobX - visualKnobX
-        if (abs(diff) > 0.01f) {
-            visualKnobX += diff * KNOB_SMOOTH_FACTOR
-            if (abs(targetKnobX - visualKnobX) < 0.01f) {
-                visualKnobX = targetKnobX
-            }
-        } else {
-            visualKnobX = targetKnobX
-        }
-        val currentKnobRenderX = visualKnobX.roundToInt()
-
-        val trackColor = if (enabled) GuiColors.SLIDER_TRACK else GuiColors.COMPONENT_BACKGROUND_DISABLED
-        val knobColor = when {
-            !enabled -> GuiColors.TEXT_DISABLED
-            isDragging -> GuiColors.LIGHT_RED
-            this.hovered -> GuiColors.SLIDER_KNOB_HOVER
-            else -> GuiColors.SLIDER_KNOB
-        }
-        val filledTrackColor = if (enabled) GuiColors.SLIDER_TRACK_FILLED else GuiColors.PRIMARY_RED_DARK
-
-        val valueText = displayFormat(currentValue)
-        val labelText = label
-        val labelColor = if (enabled) GuiColors.TEXT_PRIMARY else GuiColors.TEXT_DISABLED
-        val valueColor = if (enabled) GuiColors.TEXT_ACCENT else GuiColors.TEXT_DISABLED
-
-        fontRenderer.drawStringWithShadow(labelText, x.toFloat(), (y - fontRenderer.FONT_HEIGHT - 3).toFloat(), labelColor)
-        val valueTextWidth = fontRenderer.getStringWidth(valueText)
-        fontRenderer.drawStringWithShadow(valueText, (x + width - valueTextWidth).toFloat(), (y - fontRenderer.FONT_HEIGHT - 3).toFloat(), valueColor)
-
-        val trackY = this.y + (this.height - sliderTrackHeight) / 2
-        Gui.drawRect(this.x, trackY, this.x + this.width, trackY + sliderTrackHeight, trackColor)
-        Gui.drawRect(this.x, trackY, currentKnobRenderX + sliderKnobWidth / 2, trackY + sliderTrackHeight, filledTrackColor)
-        Gui.drawRect(currentKnobRenderX, this.y, currentKnobRenderX + sliderKnobWidth, this.y + this.sliderKnobHeight, knobColor)
-
-        val knobBorderColor = GuiColors.COMPONENT_BORDER
-        if (isDragging || this.hovered) {
-            Gui.drawRect(currentKnobRenderX, this.y, currentKnobRenderX + sliderKnobWidth, this.y + 1, knobBorderColor)
-            Gui.drawRect(currentKnobRenderX, this.y + this.sliderKnobHeight - 1, currentKnobRenderX + sliderKnobWidth, this.y + this.sliderKnobHeight, knobBorderColor)
-            Gui.drawRect(currentKnobRenderX, this.y, currentKnobRenderX + 1, this.y + this.sliderKnobHeight, knobBorderColor)
-            Gui.drawRect(currentKnobRenderX + sliderKnobWidth - 1, this.y, currentKnobRenderX + sliderKnobWidth, this.y + this.sliderKnobHeight, knobBorderColor)
-        }
-    }
-
     override fun mouseClicked(mouseX: Int, mouseY: Int, mouseButton: Int): Boolean {
-        if (enabled && visible && mouseButton == 0 && super.mouseClicked(mouseX, mouseY, mouseButton)) {
-            isDragging = true
-            valueOnDragStart = currentValue
-            updateValueFromMouse(mouseX, false)
-            visualKnobX = targetKnobX
-
-            mc.soundHandler.playSound(net.minecraft.client.audio.PositionedSoundRecord.create(net.minecraft.util.ResourceLocation("gui.button.press"), 0.6F))
-            return true
+        val wasClickedInBounds = super.mouseClicked(mouseX, mouseY, mouseButton)
+        if (!wasClickedInBounds) return false
+        if (mouseButton == 0) {
+            val knobRenderY = this.y + this.height / 2f
+            val dx = mouseX - visualKnobCenterX
+            val dy = mouseY - knobRenderY
+            val clickableRadius = getKnobClickableRadius()
+            val clickedKnob = dx * dx + dy * dy <= clickableRadius * clickableRadius
+            val trackActualY = this.y + (this.height - trackHeightToUse) / 2f
+            val clickedTrack = mouseX >= this.x && mouseX < this.x + this.width &&
+                    mouseY >= trackActualY && mouseY < trackActualY + trackHeightToUse
+            if (clickedKnob || clickedTrack) {
+                isDragging = true; valueOnDragStart = currentValue
+                updateValueFromMouse(mouseX, true)
+                visualKnobCenterX = calculateKnobCenterX(this.currentValue)
+                targetKnobCenterX = visualKnobCenterX
+                mc.soundHandler.playSound(net.minecraft.client.audio.PositionedSoundRecord.create(net.minecraft.util.ResourceLocation("gui.button.press"), 0.6F))
+                return true
+            }
         }
         return false
     }
 
     override fun mouseClickMove(mouseX: Int, mouseY: Int, clickedMouseButton: Int, timeSinceLastClick: Long) {
         if (isDragging && clickedMouseButton == 0 && enabled) {
-            updateValueFromMouse(mouseX, false)
+            updateValueFromMouse(mouseX, true)
         }
     }
 
     override fun mouseReleased(mouseX: Int, mouseY: Int, state: Int) {
         if (state == 0 && isDragging) {
             isDragging = false
-            visualKnobX = targetKnobX
-
-            if (currentValue != valueOnDragStart || String.format("%.5f", currentValue) != String.format("%.5f", valueOnDragStart) ) {
-                onValueChanged(currentValue)
-            }
         }
     }
 
     private fun updateValueFromMouse(mouseX: Int, notify: Boolean) {
         if (!enabled) return
-        val posRatio = (mouseX - (this.x + sliderKnobWidth / 2f)) / (this.width - sliderKnobWidth).toFloat()
-        val newValue = minValue + (maxValue - minValue) * posRatio.coerceIn(0f, 1f)
+        val actualKnobRadius = if (knobVisualRadius > 0f) knobVisualRadius else 0.1f
+        val travelWidth = this.width - (2 * actualKnobRadius)
+        if (travelWidth <= 0f) return
+        val relativeMouseX = mouseX - (this.x + actualKnobRadius)
+        val ratio = (relativeMouseX / travelWidth).coerceIn(0f, 1f)
+        val newValue = minValue + (maxValue - minValue) * ratio
         internalSetValue(newValue, notify)
     }
 }

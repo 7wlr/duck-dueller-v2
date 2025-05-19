@@ -24,7 +24,7 @@ import net.minecraftforge.fml.common.event.FMLPreInitializationEvent
 class wlr {
 
     companion object {
-        const val MOD_ID = "keystrokesMod"
+        const val MOD_ID = "wlr"
         const val MOD_NAME = "WLR"
         const val VERSION = "1.0"
         const val configLocation = "./config/wlr.json"

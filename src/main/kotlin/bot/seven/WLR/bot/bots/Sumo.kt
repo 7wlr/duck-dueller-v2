@@ -4,7 +4,10 @@ import bot.seven.WLR.bot.BotBase
 import bot.seven.WLR.bot.StateManager
 import bot.seven.WLR.bot.player.*
 import bot.seven.WLR.core.Config
-import bot.seven.WLR.utils.*
+import bot.seven.WLR.utils.EntityUtils
+import bot.seven.WLR.utils.RandomUtils
+import bot.seven.WLR.utils.TimeUtils
+import bot.seven.WLR.utils.WorldUtils
 import kotlin.math.abs
 
 class Sumo : BotBase("/play duels_sumo_duel") {
@@ -22,10 +25,6 @@ class Sumo : BotBase("/play duels_sumo_duel") {
             )
         )
     }
-
-    private val STRAFE_MIN_DISTANCE_OPPONENT_OLD = 3.0
-    private val STRAFE_EDGE_DIFFERENCE_THRESHOLD_OLD = 1.0
-    private val MIN_COMBO_TO_CLEAR_STRAFE_OLD = 2
 
     private var tapping = false
     private var opponentOffEdge = false
@@ -84,7 +83,6 @@ class Sumo : BotBase("/play duels_sumo_duel") {
         if (!tapping && StateManager.state == StateManager.States.PLAYING && mc.thePlayer != null) {
             tapping = true
             val dur = if (tap50) 50 else 100
-            ChatUtils.info("W-Tap ($dur ms)")
             Combat.wTap(dur)
             tap50 = !tap50
             TimeUtils.setTimeout(fun () {
@@ -124,28 +122,23 @@ class Sumo : BotBase("/play duels_sumo_duel") {
         val currentOpponent = opponent()
 
         if (StateManager.state == StateManager.States.GAME && player != null) {
-            if (Config.lobbyMovement) { // Check the config setting
-                if (!Movement.forward()) {
-                    Movement.startForward()
-                }
-                if (!Movement.sprinting()) {
-                    Movement.startSprinting()
-                }
-                if (player.onGround && !Movement.jumping()) {
-                    Movement.startJumping()
-                }
-            } else { // If lobbyMovement is disabled, clear all movement
+            if (Config.lobbyMovement) {
+                if (!Movement.forward()) Movement.startForward()
+                if (!Movement.sprinting()) Movement.startSprinting()
+                if (player.onGround && !Movement.jumping()) Movement.startJumping()
+            } else {
                 Movement.clearAll()
             }
+            Mouse.stopTracking()
+            Mouse.stopLeftAC()
+            Combat.stopRandomStrafe()
             return
         }
 
-        if (player == null || currentOpponent == null) {
+        if (player == null || currentOpponent == null || StateManager.state != StateManager.States.PLAYING) {
             val isMoving = Movement.forward() || Movement.backward() || Movement.left() || Movement.right()
-            if (isMoving) {
-                Movement.clearAll()
-                Combat.stopRandomStrafe()
-            }
+            if (isMoving) Movement.clearAll()
+            Combat.stopRandomStrafe()
             Mouse.stopTracking()
             Mouse.stopLeftAC()
             if (currentOpponent == null) {
@@ -157,7 +150,7 @@ class Sumo : BotBase("/play duels_sumo_duel") {
         val isCurrentOpponentActuallyOffEdge = WorldUtils.entityOffEdge(currentOpponent)
         opponentOffEdge = isCurrentOpponentActuallyOffEdge || (opponentOffEdge && EntityUtils.getDistanceNoY(player, currentOpponent) > 17)
 
-        if (!opponentOffEdge && StateManager.state == StateManager.States.PLAYING) {
+        if (!opponentOffEdge) {
             if (!player.isSprinting) {
                 Movement.startSprinting()
             }
@@ -174,72 +167,95 @@ class Sumo : BotBase("/play duels_sumo_duel") {
 
             var performingJump = false
 
-            val jumpDistanceThreshold = RandomUtils.randomDoubleInRange(5.5, 7.0)
-            if (canDistanceJump && distance >= jumpDistanceThreshold && player.onGround && !WorldUtils.airInFront(player, 3f) && !tapping) {
-                Movement.clearLeftRight(); Combat.stopRandomStrafe()
-                Movement.startForward()
-                Movement.singleJump(RandomUtils.randomIntInRange(100, 150))
-                canDistanceJump = false
-                TimeUtils.setTimeout(fun() { canDistanceJump = true }, RandomUtils.randomIntInRange(500, 1000))
-                performingJump = true
+            if (Config.enableSumoDistanceJump) {
+                val jumpDistanceThreshold = RandomUtils.randomDoubleInRange(5.5, 7.0)
+                if (canDistanceJump && distance >= jumpDistanceThreshold && player.onGround && !WorldUtils.airInFront(player, 3f) && !tapping) {
+                    Movement.clearLeftRight(); Combat.stopRandomStrafe()
+                    Movement.startForward()
+                    Movement.singleJump(RandomUtils.randomIntInRange(100, 150))
+                    canDistanceJump = false
+                    TimeUtils.setTimeout(fun() { canDistanceJump = true }, RandomUtils.randomIntInRange(500, 1000))
+                    performingJump = true
+                }
             }
 
-            if (!performingJump && combo >= 3 && distance >= 3.2 && distance < (jumpDistanceThreshold - 0.5)  && player.onGround && !nearEdge(4f) && !WorldUtils.airInFront(player, 3f) && !tapping) {
+            if (!performingJump && combo >= 3 && distance >= 3.2 && distance < (RandomUtils.randomDoubleInRange(5.5, 7.0) - 0.5)  && player.onGround && !nearEdge(4f) && !WorldUtils.airInFront(player, 3f) && !tapping) {
                 Movement.clearLeftRight(); Combat.stopRandomStrafe()
                 Movement.singleJump(RandomUtils.randomIntInRange(100, 150))
                 performingJump = true
             }
 
             if (!performingJump) {
-                val movePriority = arrayListOf(0, 0)
                 var clearStrafingInputs = false
                 var engageRandomStrafe = false
 
-                if (distance <= STRAFE_MIN_DISTANCE_OPPONENT_OLD) {
-                    clearStrafingInputs = true
-                } else if (combo >= MIN_COMBO_TO_CLEAR_STRAFE_OLD) {
-                    clearStrafingInputs = true
-                }
+                if (Config.enableSumoStrafing) {
+                    val strafeMinDistanceOpponent: Double
+                    val strafeEdgeDifferenceThreshold: Double
+                    val minComboToClearStrafe: Int
+                    val randomStrafeMinDur: Int
+                    val randomStrafeMaxDur: Int
 
-                if (!clearStrafingInputs && !tapping) {
-                    val le = WorldUtils.distanceToLeftEdge(player)
-                    val re = WorldUtils.distanceToRightEdge(player)
-                    val diff = abs(le - re)
+                    when (Config.sumoStrafeIntensity) {
+                        Config.SumoStrafeIntensity.LIGHT -> {
+                            strafeMinDistanceOpponent = 3.5
+                            strafeEdgeDifferenceThreshold = 1.5
+                            minComboToClearStrafe = 3
+                            randomStrafeMinDur = 1000
+                            randomStrafeMaxDur = 1500
+                        }
+                        Config.SumoStrafeIntensity.MEDIUM -> {
+                            strafeMinDistanceOpponent = 3.0
+                            strafeEdgeDifferenceThreshold = 1.0
+                            minComboToClearStrafe = 2
+                            randomStrafeMinDur = 900
+                            randomStrafeMaxDur = 1400
+                        }
+                        Config.SumoStrafeIntensity.HARD -> {
+                            strafeMinDistanceOpponent = 2.5
+                            strafeEdgeDifferenceThreshold = 0.75
+                            minComboToClearStrafe = 1
+                            randomStrafeMinDur = 700
+                            randomStrafeMaxDur = 1200
+                        }
+                    }
 
-                    if (diff > STRAFE_EDGE_DIFFERENCE_THRESHOLD_OLD) {
-                        if (le < re) {
-                            movePriority[1] += 5
-                        } else if (re < le) {
-                            movePriority[0] += 5
+                    if (distance <= strafeMinDistanceOpponent) {
+                        clearStrafingInputs = true
+                    } else if (combo >= minComboToClearStrafe) {
+                        clearStrafingInputs = true
+                    }
+
+                    if (!clearStrafingInputs && !tapping) {
+                        val le = WorldUtils.distanceToLeftEdge(player)
+                        val re = WorldUtils.distanceToRightEdge(player)
+                        val diff = abs(le - re)
+
+                        if (diff > strafeEdgeDifferenceThreshold) {
+                            if (le < re) {
+                                Movement.stopLeft()
+                                Movement.startRight()
+                                Combat.stopRandomStrafe()
+                            } else if (re < le) {
+                                Movement.stopRight()
+                                Movement.startLeft()
+                                Combat.stopRandomStrafe()
+                            } else {
+                                engageRandomStrafe = true
+                            }
                         } else {
                             engageRandomStrafe = true
                         }
-                    } else {
-                        engageRandomStrafe = true
                     }
-                }
 
-                if (clearStrafingInputs) {
-                    Combat.stopRandomStrafe()
-                    Movement.clearLeftRight()
-                } else if (!tapping) {
-                    if (engageRandomStrafe) {
-                        Movement.clearLeftRight()
-                        Combat.startRandomStrafe(900, 1400)
-                    } else {
+                    if (clearStrafingInputs || tapping) {
                         Combat.stopRandomStrafe()
-                        if (movePriority[0] > movePriority[1]) {
-                            Movement.stopRight()
-                            Movement.startLeft()
-                        } else if (movePriority[1] > movePriority[0]) {
-                            Movement.stopLeft()
-                            Movement.startRight()
-                        } else {
-                            Movement.clearLeftRight()
-                            Combat.startRandomStrafe(900, 1400)
-                        }
+                        Movement.clearLeftRight()
+                    } else if (engageRandomStrafe) {
+                        Movement.clearLeftRight()
+                        Combat.startRandomStrafe(randomStrafeMinDur, randomStrafeMaxDur)
                     }
-                } else if (tapping && !clearStrafingInputs) {
+                } else {
                     Combat.stopRandomStrafe()
                     Movement.clearLeftRight()
                 }
@@ -276,7 +292,6 @@ class Sumo : BotBase("/play duels_sumo_duel") {
                     Movement.stopRight()
                 }
             }
-
         } else {
             Mouse.stopLeftAC()
             Combat.stopRandomStrafe()
