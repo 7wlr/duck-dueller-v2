@@ -45,6 +45,7 @@ WLR is a free and open-source Hypixel Duels bot, a heavily modified fork of duck
 - ✅ Many failsafes
 - ✅ Discord Webhook Integration
 - ✅ Highly Customizable :D
+- ✅ Hidden from modlist sent to Hypixel
 - ✅ Boosting modes
 - ✅ Session HUD
 - ✅ Replay Clearing
