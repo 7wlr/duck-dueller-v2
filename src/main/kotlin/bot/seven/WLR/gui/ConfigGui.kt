@@ -71,6 +71,7 @@ class ConfigGui : GuiScreen() {
 
     private lateinit var currentBotDropdown: Dropdown
     private lateinit var lobbyMovementCheckbox: Checkbox
+    private lateinit var lobbyMovementTypeDropdown: Dropdown
     private lateinit var disableChatMessagesCheckbox: Checkbox
     private lateinit var throwAfterGamesSlider: Slider
     private lateinit var disconnectAfterGamesSlider: Slider
@@ -102,7 +103,6 @@ class ConfigGui : GuiScreen() {
     private lateinit var enableSumoDistanceJumpCheckbox: Checkbox
     private lateinit var enableSumoStrafingCheckbox: Checkbox
     private lateinit var sumoStrafeIntensityDropdown: Dropdown
-
     private lateinit var sendAutoGGCheckbox: Checkbox
     private lateinit var ggMessageTextField: Textfield
     private lateinit var ggDelaySlider: Slider
@@ -163,8 +163,6 @@ class ConfigGui : GuiScreen() {
 
             updateGuiElementStates()
         } catch (e: Exception) {
-            println("Error initializing ConfigGui:")
-            e.printStackTrace()
         }
     }
 
@@ -180,12 +178,10 @@ class ConfigGui : GuiScreen() {
         allPossibleTabsMap["Camera"] = Tab(name = "Camera", id = "Camera", icon = null)
         allPossibleTabsMap["HUD"] = Tab(name = "HUD", id = "HUD", icon = null)
         allPossibleTabsMap["Misc"] = Tab(name = "Misc", id = "Misc", icon = null)
-
     }
 
     private fun orderAndPopulateTabs() {
         this.tabs.clear()
-
         ConfigSorter.WLR_TAB_ORDER.forEach { tabId ->
             allPossibleTabsMap[tabId]?.let { tabDefinition ->
                 tabDefinition.components.clear()
@@ -193,11 +189,8 @@ class ConfigGui : GuiScreen() {
                 tabDefinition.targetScrollY = 0
                 populateComponentsForTab(tabDefinition)
                 this.tabs.add(tabDefinition)
-            } ?: run {
-                println("Warning: Tab ID '$tabId' from ConfigSorter not found in allPossibleTabsMap.")
             }
         }
-
         allPossibleTabsMap.values.forEach { tabDefinition ->
             if (!this.tabs.any { it.id == tabDefinition.id }) {
                 tabDefinition.components.clear()
@@ -222,37 +215,34 @@ class ConfigGui : GuiScreen() {
         when (tab.id) {
             "General" -> {
                 currentBotDropdown = Dropdown(
-                    id = getNextId(),
-                    x = startX,
-                    y = logicalCurrentY + labelHeightAboveComponent,
-                    width = actualComponentWidth,
-                    height = MODERN_DROPDOWN_HEIGHT,
-                    label = "Current Bot",
-                    options = Config.REGULAR_BOT_OPTIONS.toList(),
-                    initialSelectedIndex = Config.currentBot,
-                    onSelectionChanged = { index, _ ->
-                        Config.setCurrentBot(index)
-                    }
+                    id = getNextId(), x = startX, y = logicalCurrentY + labelHeightAboveComponent,
+                    width = actualComponentWidth, height = MODERN_DROPDOWN_HEIGHT, label = "Current Bot",
+                    options = Config.REGULAR_BOT_OPTIONS.toList(), initialSelectedIndex = Config.currentBot,
+                    onSelectionChanged = { index, _ -> Config.setCurrentBot(index); updateGuiElementStates() }
                 )
                 tab.components.add(currentBotDropdown)
                 logicalCurrentY += labelHeightAboveComponent + currentBotDropdown.height + interComponentSpacing
 
                 lobbyMovementCheckbox = Checkbox(
-                    id = getNextId(),
-                    x = startX,
-                    y = logicalCurrentY,
-                    label = "Lobby Movement",
+                    id = getNextId(), x = startX, y = logicalCurrentY, label = "Lobby Movement",
                     initialValue = Config.lobbyMovement,
-                    onValueChanged = { newValue -> Config.lobbyMovement = newValue; Config.save() }
+                    onValueChanged = { newValue -> Config.lobbyMovement = newValue; updateGuiElementStates() }
                 )
                 tab.components.add(lobbyMovementCheckbox)
                 logicalCurrentY += lobbyMovementCheckbox.height + interComponentSpacing
 
+                lobbyMovementTypeDropdown = Dropdown(
+                    id = getNextId(), x = startX, y = logicalCurrentY + labelHeightAboveComponent,
+                    width = actualComponentWidth, height = MODERN_DROPDOWN_HEIGHT, label = "Movement Type",
+                    options = Config.LobbyMovementType.options,
+                    initialSelectedIndex = Config.selectedLobbyMovementType.ordinal,
+                    onSelectionChanged = { index, _ -> Config.setSelectedLobbyMovementType(index) }
+                )
+                tab.components.add(lobbyMovementTypeDropdown)
+                logicalCurrentY += labelHeightAboveComponent + lobbyMovementTypeDropdown.height + interComponentSpacing
+
                 disableChatMessagesCheckbox = Checkbox(
-                    id = getNextId(),
-                    x = startX,
-                    y = logicalCurrentY,
-                    label = "Disable Chat Messages",
+                    id = getNextId(), x = startX, y = logicalCurrentY, label = "Disable Chat Messages",
                     initialValue = Config.disableChatMessages,
                     onValueChanged = { newValue -> Config.disableChatMessages = newValue; Config.save() }
                 )
@@ -260,16 +250,9 @@ class ConfigGui : GuiScreen() {
                 logicalCurrentY += disableChatMessagesCheckbox.height + interComponentSpacing
 
                 throwAfterGamesSlider = Slider(
-                    id = getNextId(),
-                    x = startX,
-                    y = logicalCurrentY + labelHeightAboveComponent,
-                    width = actualComponentWidth,
-                    height = MODERN_SLIDER_HEIGHT,
-                    label = "Throw After X Games",
-                    initialValue = Config.throwAfterGames.toFloat(),
-                    minValue = 0f,
-                    maxValue = 1000f,
-                    step = 1f,
+                    id = getNextId(), x = startX, y = logicalCurrentY + labelHeightAboveComponent,
+                    width = actualComponentWidth, height = MODERN_SLIDER_HEIGHT, label = "Throw After X Games",
+                    initialValue = Config.throwAfterGames.toFloat(), minValue = 0f, maxValue = 1000f, step = 1f,
                     displayFormat = { value -> "%.0f".format(value) },
                     onValueChanged = { newValue -> Config.throwAfterGames = newValue.toInt(); Config.save() }
                 )
@@ -277,16 +260,9 @@ class ConfigGui : GuiScreen() {
                 logicalCurrentY += labelHeightAboveComponent + throwAfterGamesSlider.height + interComponentSpacing
 
                 disconnectAfterGamesSlider = Slider(
-                    id = getNextId(),
-                    x = startX,
-                    y = logicalCurrentY + labelHeightAboveComponent,
-                    width = actualComponentWidth,
-                    height = MODERN_SLIDER_HEIGHT,
-                    label = "Disconnect After X Games",
-                    initialValue = Config.disconnectAfterGames.toFloat(),
-                    minValue = 0f,
-                    maxValue = 10000f,
-                    step = 10f,
+                    id = getNextId(), x = startX, y = logicalCurrentY + labelHeightAboveComponent,
+                    width = actualComponentWidth, height = MODERN_SLIDER_HEIGHT, label = "Disconnect After X Games",
+                    initialValue = Config.disconnectAfterGames.toFloat(), minValue = 0f, maxValue = 10000f, step = 10f,
                     displayFormat = { value -> "%.0f".format(value) },
                     onValueChanged = { newValue -> Config.disconnectAfterGames = newValue.toInt(); Config.save() }
                 )
@@ -294,30 +270,20 @@ class ConfigGui : GuiScreen() {
                 logicalCurrentY += labelHeightAboveComponent + disconnectAfterGamesSlider.height + interComponentSpacing
 
                 disconnectAfterMinutesSlider = Slider(
-                    id = getNextId(),
-                    x = startX,
-                    y = logicalCurrentY + labelHeightAboveComponent,
-                    width = actualComponentWidth,
-                    height = MODERN_SLIDER_HEIGHT,
-                    label = "Disconnect After X Mins",
-                    initialValue = Config.disconnectAfterMinutes.toFloat(),
-                    minValue = 0f,
-                    maxValue = 500f,
-                    step = 5f,
+                    id = getNextId(), x = startX, y = logicalCurrentY + labelHeightAboveComponent,
+                    width = actualComponentWidth, height = MODERN_SLIDER_HEIGHT, label = "Disconnect After X Mins",
+                    initialValue = Config.disconnectAfterMinutes.toFloat(), minValue = 0f, maxValue = 500f, step = 5f,
                     displayFormat = { value -> "%.0f".format(value) },
                     onValueChanged = { newValue -> Config.disconnectAfterMinutes = newValue.toInt(); Config.save() }
                 )
                 tab.components.add(disconnectAfterMinutesSlider)
                 logicalCurrentY += labelHeightAboveComponent + disconnectAfterMinutesSlider.height + interComponentSpacing * 2
-
-                val sectionLabelSumo = "Sumo Bot Settings:"
-                logicalCurrentY += mc.fontRendererObj.FONT_HEIGHT + interComponentSpacing / 2
             }
             "Boosting" -> {
                 enableBoostingModeCheckbox = Checkbox(
                     id = getNextId(), x = startX, y = logicalCurrentY,
                     label = "Enable Boosting Mode", initialValue = Config.enableBoostingMode,
-                    onValueChanged = { newValue -> Config.setEnableBoostingMode(newValue) }
+                    onValueChanged = { newValue -> Config.setEnableBoostingMode(newValue); updateGuiElementStates() }
                 )
                 tab.components.add(enableBoostingModeCheckbox)
                 logicalCurrentY += enableBoostingModeCheckbox.height + interComponentSpacing
@@ -327,7 +293,7 @@ class ConfigGui : GuiScreen() {
                     width = actualComponentWidth, height = MODERN_DROPDOWN_HEIGHT,
                     label = "Selected Boosting Bot", options = Config.BOOSTING_BOT_OPTIONS.toList(),
                     initialSelectedIndex = Config.selectedBoostingBotIndex,
-                    onSelectionChanged = { index, _ -> Config.setSelectedBoostingBot(index) }
+                    onSelectionChanged = { index, _ -> Config.setSelectedBoostingBot(index); updateGuiElementStates() }
                 )
                 tab.components.add(selectedBoostingBotDropdown)
                 logicalCurrentY += labelHeightAboveComponent + selectedBoostingBotDropdown.height + interComponentSpacing
@@ -424,7 +390,7 @@ class ConfigGui : GuiScreen() {
                 enableReplayClearingModeCheckbox = Checkbox(
                     id = getNextId(), x = startX, y = logicalCurrentY,
                     label = "Enable Replay Clearing", initialValue = Config.enableReplayClearingMode,
-                    onValueChanged = { newValue -> Config.setEnableReplayClearingMode(newValue) }
+                    onValueChanged = { newValue -> Config.setEnableReplayClearingMode(newValue); updateGuiElementStates() }
                 )
                 tab.components.add(enableReplayClearingModeCheckbox)
                 logicalCurrentY += enableReplayClearingModeCheckbox.height + interComponentSpacing
@@ -546,23 +512,7 @@ class ConfigGui : GuiScreen() {
                     onValueChanged = { newValue -> Config.comboResetDistance = newValue.roundToInt(); Config.save() }
                 )
                 tab.components.add(comboResetDistanceSlider)
-                logicalCurrentY += labelHeightAboveComponent + comboResetDistanceSlider.height
-
-                sumoStrafeIntensityDropdown = Dropdown(
-                    id = getNextId(),
-                    x = startX,
-                    y = logicalCurrentY + labelHeightAboveComponent,
-                    width = actualComponentWidth,
-                    height = MODERN_DROPDOWN_HEIGHT,
-                    label = "Sumo Strafe Intensity",
-                    options = Config.SumoStrafeIntensity.options,
-                    initialSelectedIndex = Config.sumoStrafeIntensity.ordinal,
-                    onSelectionChanged = { index, _ ->
-                        Config.sumoStrafeIntensity = Config.SumoStrafeIntensity.fromOrdinal(index)
-                    }
-                )
-                tab.components.add(sumoStrafeIntensityDropdown)
-                logicalCurrentY += labelHeightAboveComponent + sumoStrafeIntensityDropdown.height + interComponentSpacing
+                logicalCurrentY += labelHeightAboveComponent + comboResetDistanceSlider.height + interComponentSpacing
 
                 enableSumoDistanceJumpCheckbox = Checkbox(
                     id = getNextId(), x = startX, y = logicalCurrentY,
@@ -579,6 +529,16 @@ class ConfigGui : GuiScreen() {
                 )
                 tab.components.add(enableSumoStrafingCheckbox)
                 logicalCurrentY += enableSumoStrafingCheckbox.height + interComponentSpacing
+
+                sumoStrafeIntensityDropdown = Dropdown(
+                    id = getNextId(), x = startX, y = logicalCurrentY + labelHeightAboveComponent,
+                    width = actualComponentWidth, height = MODERN_DROPDOWN_HEIGHT, label = "Sumo Strafe Intensity",
+                    options = Config.SumoStrafeIntensity.options,
+                    initialSelectedIndex = Config.sumoStrafeIntensity.ordinal,
+                    onSelectionChanged = { index, _ -> Config.sumoStrafeIntensity = Config.SumoStrafeIntensity.fromOrdinal(index) }
+                )
+                tab.components.add(sumoStrafeIntensityDropdown)
+                logicalCurrentY += labelHeightAboveComponent + sumoStrafeIntensityDropdown.height
             }
             "Messages" -> {
                 sendAutoGGCheckbox = Checkbox(
@@ -753,6 +713,7 @@ class ConfigGui : GuiScreen() {
     fun updateGuiElementStates() {
         if (tabs.isEmpty() || !::currentBotDropdown.isInitialized) return
 
+        val isLobbyMovementEnabled = Config.lobbyMovement
         val isSumoBotActive = Config.currentBot == Config.sumoBotIndex && !Config.enableBoostingMode && !Config.enableReplayClearingMode
         val isBoostingEnabled = Config.enableBoostingMode
         val isReplayClearingEnabled = Config.enableReplayClearingMode
@@ -764,109 +725,61 @@ class ConfigGui : GuiScreen() {
         val isComboResetEnabled = Config.enableComboResetByDistance
         val isSumoStrafingEnabled = Config.enableSumoStrafing
 
-
         tabs.forEach { tab ->
             tab.components.forEach { component ->
                 component.enabled = true
-
-                if (::currentBotDropdown.isInitialized && component == currentBotDropdown) {
-                    component.enabled = !isBoostingEnabled && !isReplayClearingEnabled
-                } else if (::lobbyMovementCheckbox.isInitialized && component == lobbyMovementCheckbox) {
-                } else if (::disableChatMessagesCheckbox.isInitialized && component == disableChatMessagesCheckbox) {
-                } else if (::throwAfterGamesSlider.isInitialized && component == throwAfterGamesSlider) {
-                } else if (::disconnectAfterGamesSlider.isInitialized && component == disconnectAfterGamesSlider) {
-                } else if (::disconnectAfterMinutesSlider.isInitialized && component == disconnectAfterMinutesSlider) {
-                }
-                else if (::enableSumoDistanceJumpCheckbox.isInitialized && component == enableSumoDistanceJumpCheckbox) {
-                    component.enabled = isSumoBotActive
-                } else if (::enableSumoStrafingCheckbox.isInitialized && component == enableSumoStrafingCheckbox) {
-                    component.enabled = isSumoBotActive
-                } else if (::sumoStrafeIntensityDropdown.isInitialized && component == sumoStrafeIntensityDropdown) {
-                    component.enabled = isSumoBotActive && isSumoStrafingEnabled
-                }
-
-
-                else if (::enableBoostingModeCheckbox.isInitialized && component == enableBoostingModeCheckbox) {
-                }
-                else if (::selectedBoostingBotDropdown.isInitialized && component == selectedBoostingBotDropdown) {
-                    component.enabled = isBoostingEnabled
-                } else if (::boostingRequeueDelaySlider.isInitialized && component == boostingRequeueDelaySlider) {
-                    component.enabled = isBoostingEnabled
-                }
-
-                else if (::enableCustomCameraCheckbox.isInitialized && component == enableCustomCameraCheckbox) {
-                }
-                else if (::cameraOffsetXSlider.isInitialized && component == cameraOffsetXSlider) {
-                    component.enabled = isCustomCameraEnabled
-                } else if (::cameraOffsetYSlider.isInitialized && component == cameraOffsetYSlider) {
-                    component.enabled = isCustomCameraEnabled
-                } else if (::cameraOffsetZSlider.isInitialized && component == cameraOffsetZSlider) {
-                    component.enabled = isCustomCameraEnabled
-                } else if (::cameraPitchSlider.isInitialized && component == cameraPitchSlider) {
-                    component.enabled = isCustomCameraEnabled
-                } else if (::cameraYawSlider.isInitialized && component == cameraYawSlider) {
-                    component.enabled = isCustomCameraEnabled
-                } else if (::enableCameraZoomCheckbox.isInitialized && component == enableCameraZoomCheckbox) {
-                    component.enabled = isCustomCameraEnabled
-                } else if (::cameraZoomFovSlider.isInitialized && component == cameraZoomFovSlider) {
-                    component.enabled = isCameraZoomEnabled
-                }
-
-                else if (::enableReplayClearingModeCheckbox.isInitialized && component == enableReplayClearingModeCheckbox) {
-                }
-                else if (::replayClearingMinDelaySlider.isInitialized && component == replayClearingMinDelaySlider) {
-                    component.enabled = isReplayClearingEnabled
-                } else if (::replayClearingMaxDelaySlider.isInitialized && component == replayClearingMaxDelaySlider) {
-                    component.enabled = isReplayClearingEnabled
-                } else if (::replayClearingCommandCountSlider.isInitialized && component == replayClearingCommandCountSlider) {
-                    component.enabled = isReplayClearingEnabled
-                }
-
-                else if (::minCPSSlider.isInitialized && component == minCPSSlider) {
-                } else if (::maxCPSSlider.isInitialized && component == maxCPSSlider) {
-                } else if (::lookSpeedHorizontalSlider.isInitialized && component == lookSpeedHorizontalSlider) {
-                } else if (::lookSpeedVerticalSlider.isInitialized && component == lookSpeedVerticalSlider) {
-                } else if (::lookRandSlider.isInitialized && component == lookRandSlider) {
-                } else if (::maxDistanceLookSlider.isInitialized && component == maxDistanceLookSlider) {
-                } else if (::maxDistanceAttackSlider.isInitialized && component == maxDistanceAttackSlider) {
-                } else if (::enableComboResetByDistanceCheckbox.isInitialized && component == enableComboResetByDistanceCheckbox) {
-                } else if (::comboResetDistanceSlider.isInitialized && component == comboResetDistanceSlider) {
-                    component.enabled = isComboResetEnabled
-                }
-
-                else if (::sendAutoGGCheckbox.isInitialized && component == sendAutoGGCheckbox) {
-                } else if (::ggMessageTextField.isInitialized && component == ggMessageTextField) {
-                    component.enabled = isAutoGGEnabled
-                } else if (::ggDelaySlider.isInitialized && component == ggDelaySlider) {
-                    component.enabled = isAutoGGEnabled
-                } else if (::sendStartMessageCheckbox.isInitialized && component == sendStartMessageCheckbox) {
-                } else if (::startMessageTextField.isInitialized && component == startMessageTextField) {
-                    component.enabled = isStartMessageEnabled
-                } else if (::startMessageDelaySlider.isInitialized && component == startMessageDelaySlider) {
-                    component.enabled = isStartMessageEnabled
-                }
-
-                else if (::autoRqDelaySlider.isInitialized && component == autoRqDelaySlider) {
-                } else if (::rqNoGameSlider.isInitialized && component == rqNoGameSlider) {
-                } else if (::paperRequeueCheckbox.isInitialized && component == paperRequeueCheckbox) {
-                } else if (::fastRequeueCheckbox.isInitialized && component == fastRequeueCheckbox) {
-                }
-
-                else if (::sendWebhookMessagesCheckbox.isInitialized && component == sendWebhookMessagesCheckbox) {
-                } else if (::webhookURLTextField.isInitialized && component == webhookURLTextField) {
-                    component.enabled = isWebhookEnabled
-                }
-
-                else if (::boxingFishCheckbox.isInitialized && component == boxingFishCheckbox) {
-                }
-
-                else if (::sessionStatsHUDCheckbox.isInitialized && component == sessionStatsHUDCheckbox) {
-                }
+                if (::currentBotDropdown.isInitialized && component == currentBotDropdown) component.enabled = !isBoostingEnabled && !isReplayClearingEnabled
+                else if (::lobbyMovementCheckbox.isInitialized && component == lobbyMovementCheckbox) { /* Always enabled */ }
+                else if (::lobbyMovementTypeDropdown.isInitialized && component == lobbyMovementTypeDropdown) component.enabled = isLobbyMovementEnabled
+                else if (::disableChatMessagesCheckbox.isInitialized && component == disableChatMessagesCheckbox) { /* Always enabled */ }
+                else if (::throwAfterGamesSlider.isInitialized && component == throwAfterGamesSlider) { /* Always enabled */ }
+                else if (::disconnectAfterGamesSlider.isInitialized && component == disconnectAfterGamesSlider) { /* Always enabled */ }
+                else if (::disconnectAfterMinutesSlider.isInitialized && component == disconnectAfterMinutesSlider) { /* Always enabled */ }
+                else if (::enableSumoDistanceJumpCheckbox.isInitialized && component == enableSumoDistanceJumpCheckbox) component.enabled = isSumoBotActive
+                else if (::enableSumoStrafingCheckbox.isInitialized && component == enableSumoStrafingCheckbox) component.enabled = isSumoBotActive
+                else if (::sumoStrafeIntensityDropdown.isInitialized && component == sumoStrafeIntensityDropdown) component.enabled = isSumoBotActive && isSumoStrafingEnabled
+                else if (::enableBoostingModeCheckbox.isInitialized && component == enableBoostingModeCheckbox) { /* Always enabled */ }
+                else if (::selectedBoostingBotDropdown.isInitialized && component == selectedBoostingBotDropdown) component.enabled = isBoostingEnabled
+                else if (::boostingRequeueDelaySlider.isInitialized && component == boostingRequeueDelaySlider) component.enabled = isBoostingEnabled
+                else if (::enableCustomCameraCheckbox.isInitialized && component == enableCustomCameraCheckbox) { /* Always enabled */ }
+                else if (::cameraOffsetXSlider.isInitialized && component == cameraOffsetXSlider) component.enabled = isCustomCameraEnabled
+                else if (::cameraOffsetYSlider.isInitialized && component == cameraOffsetYSlider) component.enabled = isCustomCameraEnabled
+                else if (::cameraOffsetZSlider.isInitialized && component == cameraOffsetZSlider) component.enabled = isCustomCameraEnabled
+                else if (::cameraPitchSlider.isInitialized && component == cameraPitchSlider) component.enabled = isCustomCameraEnabled
+                else if (::cameraYawSlider.isInitialized && component == cameraYawSlider) component.enabled = isCustomCameraEnabled
+                else if (::enableCameraZoomCheckbox.isInitialized && component == enableCameraZoomCheckbox) component.enabled = isCustomCameraEnabled
+                else if (::cameraZoomFovSlider.isInitialized && component == cameraZoomFovSlider) component.enabled = isCameraZoomEnabled
+                else if (::enableReplayClearingModeCheckbox.isInitialized && component == enableReplayClearingModeCheckbox) { /* Always enabled */ }
+                else if (::replayClearingMinDelaySlider.isInitialized && component == replayClearingMinDelaySlider) component.enabled = isReplayClearingEnabled
+                else if (::replayClearingMaxDelaySlider.isInitialized && component == replayClearingMaxDelaySlider) component.enabled = isReplayClearingEnabled
+                else if (::replayClearingCommandCountSlider.isInitialized && component == replayClearingCommandCountSlider) component.enabled = isReplayClearingEnabled
+                else if (::minCPSSlider.isInitialized && component == minCPSSlider) { /* Always enabled */ }
+                else if (::maxCPSSlider.isInitialized && component == maxCPSSlider) { /* Always enabled */ }
+                else if (::lookSpeedHorizontalSlider.isInitialized && component == lookSpeedHorizontalSlider) { /* Always enabled */ }
+                else if (::lookSpeedVerticalSlider.isInitialized && component == lookSpeedVerticalSlider) { /* Always enabled */ }
+                else if (::lookRandSlider.isInitialized && component == lookRandSlider) { /* Always enabled */ }
+                else if (::maxDistanceLookSlider.isInitialized && component == maxDistanceLookSlider) { /* Always enabled */ }
+                else if (::maxDistanceAttackSlider.isInitialized && component == maxDistanceAttackSlider) { /* Always enabled */ }
+                else if (::enableComboResetByDistanceCheckbox.isInitialized && component == enableComboResetByDistanceCheckbox) { /* Always enabled */ }
+                else if (::comboResetDistanceSlider.isInitialized && component == comboResetDistanceSlider) component.enabled = isComboResetEnabled
+                else if (::sendAutoGGCheckbox.isInitialized && component == sendAutoGGCheckbox) { /* Always enabled */ }
+                else if (::ggMessageTextField.isInitialized && component == ggMessageTextField) component.enabled = isAutoGGEnabled
+                else if (::ggDelaySlider.isInitialized && component == ggDelaySlider) component.enabled = isAutoGGEnabled
+                else if (::sendStartMessageCheckbox.isInitialized && component == sendStartMessageCheckbox) { /* Always enabled */ }
+                else if (::startMessageTextField.isInitialized && component == startMessageTextField) component.enabled = isStartMessageEnabled
+                else if (::startMessageDelaySlider.isInitialized && component == startMessageDelaySlider) component.enabled = isStartMessageEnabled
+                else if (::autoRqDelaySlider.isInitialized && component == autoRqDelaySlider) { /* Always enabled */ }
+                else if (::rqNoGameSlider.isInitialized && component == rqNoGameSlider) { /* Always enabled */ }
+                else if (::paperRequeueCheckbox.isInitialized && component == paperRequeueCheckbox) { /* Always enabled */ }
+                else if (::fastRequeueCheckbox.isInitialized && component == fastRequeueCheckbox) { /* Always enabled */ }
+                else if (::sendWebhookMessagesCheckbox.isInitialized && component == sendWebhookMessagesCheckbox) { /* Always enabled */ }
+                else if (::webhookURLTextField.isInitialized && component == webhookURLTextField) component.enabled = isWebhookEnabled
+                else if (::boxingFishCheckbox.isInitialized && component == boxingFishCheckbox) { /* Always enabled */ }
+                else if (::sessionStatsHUDCheckbox.isInitialized && component == sessionStatsHUDCheckbox) { /* Always enabled */ }
             }
         }
         calculateContentScrollingForTab(currentTab())
     }
-
 
     override fun drawScreen(mouseX: Int, mouseY: Int, partialTicks: Float) {
         val activeTab = currentTab()
@@ -901,7 +814,6 @@ class ConfigGui : GuiScreen() {
             }
             tabScrollX = tabScrollX.coerceIn(0f, maxTabScrollX.toFloat())
         }
-
 
         Gui.drawRect(0, 0, this.width, this.height, GuiColors.SCREEN_BACKGROUND)
         GlStateManager.enableBlend(); GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO); GlStateManager.disableLighting()
@@ -956,27 +868,18 @@ class ConfigGui : GuiScreen() {
                 GuiDrawingUtils.drawRoundedRectWithBorder(
                     currentTabButtonVisualX.toFloat(), tabButtonVisualY.toFloat(),
                     tabButtonWidth.toFloat(), tabBarButtonHeight.toFloat(),
-                    3f,
-                    tabBgColor,
-                    GuiColors.TAB_BAR_BORDER,
-                    1f
+                    3f, tabBgColor, GuiColors.TAB_BAR_BORDER, 1f
                 )
                 if (isSelected) {
                     Gui.drawRect(currentTabButtonVisualX.toInt() + 3, tabButtonVisualY + tabBarButtonHeight - 2, currentTabButtonVisualX.toInt() + tabButtonWidth - 3, tabButtonVisualY + tabBarButtonHeight -1, GuiColors.PRIMARY_RED_BRIGHT)
                 }
-
                 val textY = tabButtonVisualY + (tabBarButtonHeight - fontRendererObj.FONT_HEIGHT) / 2
-                tab.icon?.let {
-                    drawCenteredString(fontRendererObj, tab.name, currentTabButtonVisualX.toInt() + tabButtonWidth / 2, textY, textColor)
-                } ?: run {
-                    drawCenteredString(fontRendererObj, tab.name, currentTabButtonVisualX.toInt() + tabButtonWidth / 2, textY, textColor)
-                }
+                drawCenteredString(fontRendererObj, tab.name, currentTabButtonVisualX.toInt() + tabButtonWidth / 2, textY, textColor)
             }
             currentTabButtonVisualX += tabButtonWidth + tabButtonSpacing
         }
         stopScissor()
         Gui.drawRect(0, tabBarYOffset + tabBarInternalHeight, this.width, tabBarYOffset + tabBarInternalHeight + 1, GuiColors.TITLE_BAR_SEPARATOR)
-
 
         val contentAreaVisualTop = contentAreaMarginTop
         val contentAreaVisualBottom = this.height - 10
@@ -998,7 +901,6 @@ class ConfigGui : GuiScreen() {
             activeTab.components.forEach { component ->
                 val originalLogicalY = component.y
                 val componentScreenY = contentAreaVisualTop + originalLogicalY - activeTab.scrollY.toInt()
-
                 if (componentScreenY + component.height >= contentAreaVisualTop && componentScreenY <= contentAreaVisualBottom) {
                     component.y = componentScreenY
                     if (!(component is Dropdown && component.isOpen)) {
@@ -1014,34 +916,14 @@ class ConfigGui : GuiScreen() {
             val scrollBarActualX = this.width - componentStartXOffset / 2 - scrollbarMargin - scrollbarWidth
             val scrollBarTrackY = contentAreaVisualTop + 2
             val scrollBarTrackHeight = contentAreaDrawableHeight - 4
-
-            GuiDrawingUtils.drawRoundedRect(
-                scrollBarActualX.toFloat(),
-                scrollBarTrackY.toFloat(),
-                scrollbarWidth.toFloat(),
-                scrollBarTrackHeight.toFloat(),
-                3f,
-                GuiColors.SCROLLBAR_BG
-            )
-
+            GuiDrawingUtils.drawRoundedRect(scrollBarActualX.toFloat(), scrollBarTrackY.toFloat(), scrollbarWidth.toFloat(), scrollBarTrackHeight.toFloat(), 3f, GuiColors.SCROLLBAR_BG)
             if (activeTab.contentHeight > contentAreaDrawableHeight) {
                 val thumbHeightRatio = (contentAreaDrawableHeight.toFloat() / activeTab.contentHeight.toFloat()).coerceIn(0.05f, 1f)
                 val thumbHeight = max(20, (scrollBarTrackHeight * thumbHeightRatio).toInt())
-
                 val thumbYRatio = if (activeTab.maxScrollY > 0) activeTab.scrollY / activeTab.maxScrollY.toFloat() else 0f
                 val thumbYPos = scrollBarTrackY + ((scrollBarTrackHeight - thumbHeight) * thumbYRatio).toInt()
-
-                val thumbHovered = (mouseX >= scrollBarActualX && mouseX < scrollBarActualX + scrollbarWidth &&
-                        mouseY >= thumbYPos && mouseY < thumbYPos + thumbHeight) || isDraggingContentScrollbar
-
-                GuiDrawingUtils.drawRoundedRect(
-                    (scrollBarActualX + 1f),
-                    thumbYPos.toFloat().coerceIn(scrollBarTrackY.toFloat(), (scrollBarTrackY + scrollBarTrackHeight - thumbHeight).toFloat()),
-                    (scrollbarWidth - 2f),
-                    thumbHeight.toFloat(),
-                    3f,
-                    if (thumbHovered) GuiColors.MODERN_SCROLLBAR_THUMB_HOVER else GuiColors.SCROLLBAR_THUMB
-                )
+                val thumbHovered = (mouseX >= scrollBarActualX && mouseX < scrollBarActualX + scrollbarWidth && mouseY >= thumbYPos && mouseY < thumbYPos + thumbHeight) || isDraggingContentScrollbar
+                GuiDrawingUtils.drawRoundedRect((scrollBarActualX + 1f), thumbYPos.toFloat().coerceIn(scrollBarTrackY.toFloat(), (scrollBarTrackY + scrollBarTrackHeight - thumbHeight).toFloat()), (scrollbarWidth - 2f), thumbHeight.toFloat(), 3f, if (thumbHovered) GuiColors.MODERN_SCROLLBAR_THUMB_HOVER else GuiColors.SCROLLBAR_THUMB)
             }
         }
 
@@ -1067,45 +949,29 @@ class ConfigGui : GuiScreen() {
         if (needsTabBarScrollButtons) {
             val scrollButtonY = tabBarYOffset + (tabBarInternalHeight - tabBarScrollButtonHeight) / 2
             val scrollLeftX = tabsInitialRenderX
-            if (mouseX >= scrollLeftX && mouseX < scrollLeftX + tabBarScrollButtonWidth &&
-                mouseY >= scrollButtonY && mouseY < scrollButtonY + tabBarScrollButtonHeight) {
+            if (mouseX >= scrollLeftX && mouseX < scrollLeftX + tabBarScrollButtonWidth && mouseY >= scrollButtonY && mouseY < scrollButtonY + tabBarScrollButtonHeight) {
                 targetTabScrollX = max(0, targetTabScrollX - (tabButtonWidth + tabButtonSpacing))
                 mc.soundHandler.playSound(net.minecraft.client.audio.PositionedSoundRecord.create(ResourceLocation("gui.button.press"), 0.7F))
                 return
             }
-
             val actualTabBarViewportWidthForButtons = localVisibleTabBarAreaWidthFull - (tabBarScrollButtonWidth * 2 + tabButtonSpacing * 2)
             val scrollRightX = tabsInitialRenderX + tabBarScrollButtonWidth + tabButtonSpacing + actualTabBarViewportWidthForButtons + tabButtonSpacing
-            if (mouseX >= scrollRightX && mouseX < scrollRightX + tabBarScrollButtonWidth &&
-                mouseY >= scrollButtonY && mouseY < scrollButtonY + tabBarScrollButtonHeight) {
+            if (mouseX >= scrollRightX && mouseX < scrollRightX + tabBarScrollButtonWidth && mouseY >= scrollButtonY && mouseY < scrollButtonY + tabBarScrollButtonHeight) {
                 targetTabScrollX = min(maxTabScrollX, targetTabScrollX + (tabButtonWidth + tabButtonSpacing))
                 mc.soundHandler.playSound(net.minecraft.client.audio.PositionedSoundRecord.create(ResourceLocation("gui.button.press"), 0.7F))
                 return
             }
             localTabsViewportStartX += tabBarScrollButtonWidth + tabButtonSpacing
         }
-        val actualClickableTabBarWidth = if (needsTabBarScrollButtons) {
-            localVisibleTabBarAreaWidthFull - (tabBarScrollButtonWidth * 2 + tabButtonSpacing * 2)
-        } else {
-            localVisibleTabBarAreaWidthFull
-        }
+        val actualClickableTabBarWidth = if (needsTabBarScrollButtons) localVisibleTabBarAreaWidthFull - (tabBarScrollButtonWidth * 2 + tabButtonSpacing * 2) else localVisibleTabBarAreaWidthFull
 
         var currentTabButtonVisualX = localTabsViewportStartX - tabScrollX.toInt()
         tabs.forEachIndexed { index, tab ->
-            if (mouseX >= currentTabButtonVisualX && mouseX < currentTabButtonVisualX + tabButtonWidth &&
-                mouseY >= tabButtonActualY && mouseY < tabButtonActualY + tabBarButtonHeight &&
-                mouseX >= localTabsViewportStartX && mouseX < localTabsViewportStartX + actualClickableTabBarWidth) {
+            if (mouseX >= currentTabButtonVisualX && mouseX < currentTabButtonVisualX + tabButtonWidth && mouseY >= tabButtonActualY && mouseY < tabButtonActualY + tabBarButtonHeight && mouseX >= localTabsViewportStartX && mouseX < localTabsViewportStartX + actualClickableTabBarWidth) {
                 if (currentTabIndex != index) {
-                    currentTab().components.forEach { comp ->
-                        if (comp is Dropdown) comp.close()
-                        if (comp is Textfield) comp.setFocused(false)
-                    }
-                    openDropdown = null
-                    isDraggingContentScrollbar = false
-
-                    currentTabIndex = index
-                    currentTab().targetScrollY = 0
-                    currentTab().scrollY = 0f
+                    currentTab().components.forEach { comp -> if (comp is Dropdown) comp.close(); if (comp is Textfield) comp.setFocused(false) }
+                    openDropdown = null; isDraggingContentScrollbar = false
+                    currentTabIndex = index; currentTab().targetScrollY = 0; currentTab().scrollY = 0f
                     mc.soundHandler.playSound(net.minecraft.client.audio.PositionedSoundRecord.create(ResourceLocation("gui.button.press"), 0.9F))
                     updateGuiElementStates()
                 }
@@ -1114,313 +980,149 @@ class ConfigGui : GuiScreen() {
             currentTabButtonVisualX += tabButtonWidth + tabButtonSpacing
         }
 
-        var activeTab = currentTab()
-        if (activeTab.id == "error_no_tabs") return
-
+        var activeTab = currentTab(); if (activeTab.id == "error_no_tabs") return
         val contentAreaVisualTop = contentAreaMarginTop
 
         if (this.openDropdown != null) {
-            val dd = this.openDropdown!!
-            val originalLogicalY_dd = dd.y
-            val dropdownScreenY = contentAreaVisualTop + originalLogicalY_dd - activeTab.scrollY.toInt()
-            dd.y = dropdownScreenY
-
+            val dd = this.openDropdown!!; val originalLogicalY_dd = dd.y; dd.y = contentAreaVisualTop + originalLogicalY_dd - activeTab.scrollY.toInt()
             if (dd.mouseClicked(mouseX, mouseY, mouseButton)) {
-                dd.y = originalLogicalY_dd
-                if (!dd.isOpen) {
-                    this.openDropdown = null
-                }
-                updateGuiElementStates()
-                return
+                dd.y = originalLogicalY_dd; if (!dd.isOpen) this.openDropdown = null
+                updateGuiElementStates(); return
             }
             val dropdownExpandedListHeight = if (dd.isOpen) dd.options.take(dd.maxDisplayableOptions).size * dd.optionHeight else 0
             val dropdownClickableHeight = dd.height + dropdownExpandedListHeight
-            val clickInsideExpandedDropdown = mouseX >= dd.x && mouseX < dd.x + dd.width &&
-                    mouseY >= dropdownScreenY && mouseY < dropdownScreenY + dropdownClickableHeight
+            val clickInsideExpandedDropdown = mouseX >= dd.x && mouseX < dd.x + dd.width && mouseY >= dd.y && mouseY < dd.y + dropdownClickableHeight
             dd.y = originalLogicalY_dd
-            if (!clickInsideExpandedDropdown) {
-                dd.close()
-                this.openDropdown = null
-            } else {
-                return
-            }
+            if (!clickInsideExpandedDropdown) { dd.close(); this.openDropdown = null } else return
         }
 
         var clickedFocusableComponentThisTurn = false
         for (component in activeTab.components.asReversed()) {
             if (component == openDropdown) continue
-            val originalLogicalY_comp = component.y
-            val componentScreenY = contentAreaVisualTop + originalLogicalY_comp - activeTab.scrollY.toInt()
+            val originalLogicalY_comp = component.y; val componentScreenY = contentAreaVisualTop + originalLogicalY_comp - activeTab.scrollY.toInt()
             val contentAreaVisualBottom = this.height - 10
-            val clickInContentAreaBounds = mouseX >= componentStartXOffset / 2 && mouseX < this.width - componentStartXOffset / 2 &&
-                    mouseY >= contentAreaVisualTop && mouseY < contentAreaVisualBottom
-
-            if (component.enabled && clickInContentAreaBounds &&
-                mouseX >= component.x && mouseX < component.x + component.width &&
-                mouseY >= componentScreenY && mouseY < componentScreenY + component.height) {
-                component.y = componentScreenY
-                val handledByComponent = component.mouseClicked(mouseX, mouseY, mouseButton)
-                component.y = originalLogicalY_comp
+            val clickInContentAreaBounds = mouseX >= componentStartXOffset / 2 && mouseX < this.width - componentStartXOffset / 2 && mouseY >= contentAreaVisualTop && mouseY < contentAreaVisualBottom
+            if (component.enabled && clickInContentAreaBounds && mouseX >= component.x && mouseX < component.x + component.width && mouseY >= componentScreenY && mouseY < componentScreenY + component.height) {
+                component.y = componentScreenY; val handledByComponent = component.mouseClicked(mouseX, mouseY, mouseButton); component.y = originalLogicalY_comp
                 if (handledByComponent) {
                     clickedFocusableComponentThisTurn = true
-                    if (component is Textfield) {
-                        activeTab.components.filterIsInstance<Textfield>().filter { it != component }.forEach { it.setFocused(false) }
-                        this.openDropdown?.close(); this.openDropdown = null
-                    } else if (component is Dropdown) {
-                        if (component.isOpen) {
-                            if (this.openDropdown != null && this.openDropdown != component) this.openDropdown?.close()
-                            this.openDropdown = component
-                            activeTab.components.filterIsInstance<Textfield>().forEach { it.setFocused(false) }
-                        } else {
-                            if (this.openDropdown == component) this.openDropdown = null
-                        }
-                    } else {
-                        activeTab.components.filterIsInstance<Textfield>().forEach { it.setFocused(false) }
-                        this.openDropdown?.close(); this.openDropdown = null
-                    }
-                    updateGuiElementStates()
-                    return
+                    if (component is Textfield) { activeTab.components.filterIsInstance<Textfield>().filter { it != component }.forEach { it.setFocused(false) }; this.openDropdown?.close(); this.openDropdown = null }
+                    else if (component is Dropdown) { if (component.isOpen) { if (this.openDropdown != null && this.openDropdown != component) this.openDropdown?.close(); this.openDropdown = component; activeTab.components.filterIsInstance<Textfield>().forEach { it.setFocused(false) } } else if (this.openDropdown == component) this.openDropdown = null }
+                    else { activeTab.components.filterIsInstance<Textfield>().forEach { it.setFocused(false) }; this.openDropdown?.close(); this.openDropdown = null }
+                    updateGuiElementStates(); return
                 }
             }
         }
 
         activeTab = currentTab()
         if (activeTab.id != "error_no_tabs" && activeTab.maxScrollY > 0 && mouseButton == 0) {
-            val contentAreaVisualBottom = this.height - 10
-            val contentAreaDrawableHeight = contentAreaVisualBottom - contentAreaVisualTop
-
+            val contentAreaVisualBottom = this.height - 10; val contentAreaDrawableHeight = contentAreaVisualBottom - contentAreaVisualTop
             val scrollBarActualX = this.width - componentStartXOffset / 2 - scrollbarMargin - scrollbarWidth
-            val scrollBarTrackY = contentAreaVisualTop + 2
-            val scrollBarTrackHeight = contentAreaDrawableHeight - 4
-
+            val scrollBarTrackY = contentAreaVisualTop + 2; val scrollBarTrackHeight = contentAreaDrawableHeight - 4
             if (activeTab.contentHeight > contentAreaDrawableHeight) {
                 val thumbHeightRatio = (contentAreaDrawableHeight.toFloat() / activeTab.contentHeight.toFloat()).coerceIn(0.05f, 1f)
                 val thumbHeight = max(20, (scrollBarTrackHeight * thumbHeightRatio).toInt())
                 val thumbYRatio = if (activeTab.maxScrollY > 0) activeTab.scrollY / activeTab.maxScrollY.toFloat() else 0f
                 val thumbYPos = scrollBarTrackY + ((scrollBarTrackHeight - thumbHeight) * thumbYRatio).toInt()
-
-                if (mouseX >= scrollBarActualX && mouseX < scrollBarActualX + scrollbarWidth &&
-                    mouseY >= thumbYPos && mouseY < thumbYPos + thumbHeight) {
-
-                    isDraggingContentScrollbar = true
-                    contentScrollbarMouseDragStartY = mouseY.toFloat()
-                    contentScrollbarInitialScrollY = activeTab.scrollY
-                    return
+                if (mouseX >= scrollBarActualX && mouseX < scrollBarActualX + scrollbarWidth && mouseY >= thumbYPos && mouseY < thumbYPos + thumbHeight) {
+                    isDraggingContentScrollbar = true; contentScrollbarMouseDragStartY = mouseY.toFloat(); contentScrollbarInitialScrollY = activeTab.scrollY; return
                 }
             }
         }
 
-
         val contentAreaVisualBottom = this.height - 10
-        val clickInContentArea = mouseX >= componentStartXOffset / 2 && mouseX < this.width - componentStartXOffset / 2 &&
-                mouseY >= contentAreaVisualTop && mouseY < contentAreaVisualBottom
-        if (!clickedFocusableComponentThisTurn && clickInContentArea) {
-            activeTab.components.filterIsInstance<Textfield>().forEach { it.setFocused(false) }
-            this.openDropdown?.close(); this.openDropdown = null
-        }
+        val clickInContentArea = mouseX >= componentStartXOffset / 2 && mouseX < this.width - componentStartXOffset / 2 && mouseY >= contentAreaVisualTop && mouseY < contentAreaVisualBottom
+        if (!clickedFocusableComponentThisTurn && clickInContentArea) { activeTab.components.filterIsInstance<Textfield>().forEach { it.setFocused(false) }; this.openDropdown?.close(); this.openDropdown = null }
     }
 
-
     override fun mouseReleased(mouseX: Int, mouseY: Int, state: Int) {
-        if (state == 0 && isDraggingContentScrollbar) {
-            isDraggingContentScrollbar = false
-        }
-
+        if (state == 0 && isDraggingContentScrollbar) isDraggingContentScrollbar = false
         super.mouseReleased(mouseX, mouseY, state)
-
         val activeTab = currentTab(); if (activeTab.id == "error_no_tabs") return
         val contentAreaVisualTop = contentAreaMarginTop
-
-        openDropdown?.let { dd ->
-            val oY = dd.y
-            dd.y = contentAreaVisualTop + oY - activeTab.scrollY.toInt()
-            dd.mouseReleased(mouseX, mouseY, state)
-            dd.y = oY
-        }
-
-        activeTab.components.filter { it != openDropdown }.forEach { component ->
-            if (component.enabled && (component is Slider || state == 0)) {
-                val oY = component.y
-                component.y = contentAreaVisualTop + oY - activeTab.scrollY.toInt()
-                component.mouseReleased(mouseX, mouseY, state)
-                component.y = oY
-            }
-        }
+        openDropdown?.let { dd -> val oY = dd.y; dd.y = contentAreaVisualTop + oY - activeTab.scrollY.toInt(); dd.mouseReleased(mouseX, mouseY, state); dd.y = oY }
+        activeTab.components.filter { it != openDropdown }.forEach { component -> if (component.enabled && (component is Slider || state == 0)) { val oY = component.y; component.y = contentAreaVisualTop + oY - activeTab.scrollY.toInt(); component.mouseReleased(mouseX, mouseY, state); component.y = oY } }
     }
 
     override fun mouseClickMove(mouseX: Int, mouseY: Int, clickedMouseButton: Int, timeSinceLastClick: Long) {
         if (isDraggingContentScrollbar && clickedMouseButton == 0) {
             val activeTab = currentTab()
-            if (activeTab.id == "error_no_tabs" || activeTab.maxScrollY <= 0) {
-                isDraggingContentScrollbar = false
-            } else {
-                val contentAreaVisualTop = contentAreaMarginTop
-                val contentAreaVisualBottom = this.height - 10
-                val contentAreaDrawableHeight = contentAreaVisualBottom - contentAreaVisualTop
-                val scrollBarTrackHeight = contentAreaDrawableHeight - 4
-
+            if (activeTab.id == "error_no_tabs" || activeTab.maxScrollY <= 0) isDraggingContentScrollbar = false
+            else {
+                val contentAreaVisualTop = contentAreaMarginTop; val contentAreaVisualBottom = this.height - 10
+                val contentAreaDrawableHeight = contentAreaVisualBottom - contentAreaVisualTop; val scrollBarTrackHeight = contentAreaDrawableHeight - 4
                 val thumbHeightRatio = (contentAreaDrawableHeight.toFloat() / activeTab.contentHeight.toFloat()).coerceIn(0.05f, 1f)
                 val thumbHeight = max(20, (scrollBarTrackHeight * thumbHeightRatio).toInt())
-
                 val scrollablePixelRangeForThumb = scrollBarTrackHeight - thumbHeight
-
-                if (scrollablePixelRangeForThumb <= 0) {
-                    isDraggingContentScrollbar = false
-                } else {
+                if (scrollablePixelRangeForThumb <= 0) isDraggingContentScrollbar = false
+                else {
                     val mouseYDelta = mouseY.toFloat() - contentScrollbarMouseDragStartY
                     val scrollUnitsPerPixel = activeTab.maxScrollY.toFloat() / scrollablePixelRangeForThumb.toFloat()
                     val scrollYChange = mouseYDelta * scrollUnitsPerPixel
-                    val newScrollY = contentScrollbarInitialScrollY + scrollYChange
-
-                    activeTab.scrollY = newScrollY.coerceIn(0f, activeTab.maxScrollY.toFloat())
-                    activeTab.targetScrollY = activeTab.scrollY.roundToInt()
-
-                    return
+                    activeTab.scrollY = (contentScrollbarInitialScrollY + scrollYChange).coerceIn(0f, activeTab.maxScrollY.toFloat())
+                    activeTab.targetScrollY = activeTab.scrollY.roundToInt(); return
                 }
             }
         }
-
         super.mouseClickMove(mouseX, mouseY, clickedMouseButton, timeSinceLastClick)
         val activeTab = currentTab(); if (activeTab.id == "error_no_tabs") return
         val contentAreaVisualTop = contentAreaMarginTop
-
-        openDropdown?.let { dd ->
-            val oY = dd.y
-            dd.y = contentAreaVisualTop + oY - activeTab.scrollY.toInt()
-            dd.mouseClickMove(mouseX, mouseY, clickedMouseButton, timeSinceLastClick)
-            dd.y = oY
-        }
-        activeTab.components.filter { it != openDropdown && it is Slider && it.enabled }.forEach { component ->
-            val oY = component.y
-            component.y = contentAreaVisualTop + oY - activeTab.scrollY.toInt()
-            component.mouseClickMove(mouseX, mouseY, clickedMouseButton, timeSinceLastClick)
-            component.y = oY
-        }
+        openDropdown?.let { dd -> val oY = dd.y; dd.y = contentAreaVisualTop + oY - activeTab.scrollY.toInt(); dd.mouseClickMove(mouseX, mouseY, clickedMouseButton, timeSinceLastClick); dd.y = oY }
+        activeTab.components.filter { it != openDropdown && it is Slider && it.enabled }.forEach { component -> val oY = component.y; component.y = contentAreaVisualTop + oY - activeTab.scrollY.toInt(); component.mouseClickMove(mouseX, mouseY, clickedMouseButton, timeSinceLastClick); component.y = oY }
     }
-
 
     override fun handleMouseInput() {
         super.handleMouseInput()
         val rawMouseX = Mouse.getEventX() * this.width / this.mc.displayWidth
         val rawMouseY = this.height - Mouse.getEventY() * this.height / this.mc.displayHeight - 1
         val dWheel = Mouse.getDWheel()
-
         if (dWheel != 0) {
             if (isDraggingContentScrollbar) return
-
             val activeTab = currentTab(); if (activeTab.id == "error_no_tabs") return
-
-            val contentAreaVisualTop = contentAreaMarginTop
-            val contentAreaVisualBottom = this.height - 10
+            val contentAreaVisualTop = contentAreaMarginTop; val contentAreaVisualBottom = this.height - 10
             val mainContentScrollAreaXEnd = this.width - componentStartXOffset / 2 - (if (activeTab.maxScrollY > 0) (scrollbarWidth + scrollbarMargin + 2) else 0)
             val guiMouseY = rawMouseY
-
-            val tabsAreaStartX = componentStartXOffset / 2
-            val tabsAreaEndX = this.width - componentStartXOffset / 2
-            val tabAreaVisualTop = tabBarYOffset
-            val tabAreaVisualBottom = tabBarYOffset + tabBarInternalHeight
-            val tabDetectionAreaTop = tabAreaVisualTop - 5
-            val tabDetectionAreaBottom = tabAreaVisualBottom + 5
-
-            if (guiMouseY >= tabDetectionAreaTop && guiMouseY < tabDetectionAreaBottom &&
-                rawMouseX >= tabsAreaStartX && rawMouseX < tabsAreaEndX) {
-                if (maxTabScrollX > 0) {
-                    val scrollAmount = tabButtonWidth + tabButtonSpacing
-                    if (dWheel > 0) targetTabScrollX = max(0, targetTabScrollX - scrollAmount)
-                    else targetTabScrollX = min(maxTabScrollX, targetTabScrollX + scrollAmount)
-                    return
-                }
+            val tabsAreaStartX = componentStartXOffset / 2; val tabsAreaEndX = this.width - componentStartXOffset / 2
+            val tabAreaVisualTop = tabBarYOffset; val tabAreaVisualBottom = tabBarYOffset + tabBarInternalHeight
+            val tabDetectionAreaTop = tabAreaVisualTop - 5; val tabDetectionAreaBottom = tabAreaVisualBottom + 5
+            if (guiMouseY >= tabDetectionAreaTop && guiMouseY < tabDetectionAreaBottom && rawMouseX >= tabsAreaStartX && rawMouseX < tabsAreaEndX) {
+                if (maxTabScrollX > 0) { val scrollAmount = tabButtonWidth + tabButtonSpacing; if (dWheel > 0) targetTabScrollX = max(0, targetTabScrollX - scrollAmount) else targetTabScrollX = min(maxTabScrollX, targetTabScrollX + scrollAmount); return }
             }
-
-            openDropdown?.let { dd ->
-                val originalLogicalY_dd = dd.y
-                val dropdownScreenY = contentAreaVisualTop + originalLogicalY_dd - activeTab.scrollY.toInt()
-                dd.y = dropdownScreenY
-                val handledByDropdown = dd.handleMouseScroll(rawMouseX, guiMouseY, dWheel)
-                dd.y = originalLogicalY_dd
-                if(handledByDropdown) {
-                    return
-                }
-            }
-
-            if (rawMouseX >= componentStartXOffset / 2 && rawMouseX < mainContentScrollAreaXEnd &&
-                guiMouseY >= contentAreaVisualTop && guiMouseY < contentAreaVisualBottom) {
-                if (activeTab.maxScrollY > 0) {
-                    val scrollAmount = if (Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT)) 80 else 30
-                    if (dWheel > 0) activeTab.targetScrollY = max(0, activeTab.targetScrollY - scrollAmount)
-                    else activeTab.targetScrollY = min(activeTab.maxScrollY, activeTab.targetScrollY + scrollAmount)
-                } else {
-                    activeTab.targetScrollY = 0
-                    activeTab.scrollY = 0f
-                }
+            openDropdown?.let { dd -> val oY = dd.y; dd.y = contentAreaVisualTop + oY - activeTab.scrollY.toInt(); val handled = dd.handleMouseScroll(rawMouseX, guiMouseY, dWheel); dd.y = oY; if(handled) return }
+            if (rawMouseX >= componentStartXOffset / 2 && rawMouseX < mainContentScrollAreaXEnd && guiMouseY >= contentAreaVisualTop && guiMouseY < contentAreaVisualBottom) {
+                if (activeTab.maxScrollY > 0) { val scrollAmount = if (Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT)) 80 else 30; if (dWheel > 0) activeTab.targetScrollY = max(0, activeTab.targetScrollY - scrollAmount) else activeTab.targetScrollY = min(activeTab.maxScrollY, activeTab.targetScrollY + scrollAmount) }
+                else { activeTab.targetScrollY = 0; activeTab.scrollY = 0f }
             }
         }
     }
 
     override fun keyTyped(typedChar: Char, keyCode: Int) {
         if (keyCode == Keyboard.KEY_ESCAPE) {
-            if (openDropdown != null) {
-                openDropdown?.close()
-                openDropdown = null
-            }
-            val activeTab = currentTab();
-            if (activeTab.id != "error_no_tabs") {
-                for (component in activeTab.components.asReversed()) {
-                    if (component is Textfield && component.textField.isFocused) {
-                        val handled = component.keyTyped(typedChar, keyCode)
-                        if (handled) return
-                    }
-                }
-            }
-            this.mc.displayGuiScreen(null)
-            return
+            if (openDropdown != null) { openDropdown?.close(); openDropdown = null }
+            val activeTab = currentTab(); if (activeTab.id != "error_no_tabs") { for (component in activeTab.components.asReversed()) { if (component is Textfield && component.textField.isFocused && component.keyTyped(typedChar, keyCode)) return } }
+            this.mc.displayGuiScreen(null); return
         }
         val activeTab = currentTab(); if (activeTab.id == "error_no_tabs") return
-
-        for (component in activeTab.components.asReversed()) {
-            if (component is Textfield && component.textField.isFocused) {
-                val handled = component.keyTyped(typedChar, keyCode)
-                if (handled) return
-            }
-        }
-        openDropdown?.let { dd ->
-            val handledByDropdown = dd.keyTyped(typedChar, keyCode)
-            if (handledByDropdown) return
-        }
+        for (component in activeTab.components.asReversed()) { if (component is Textfield && component.textField.isFocused && component.keyTyped(typedChar, keyCode)) return }
+        if (openDropdown?.keyTyped(typedChar, keyCode) == true) return
     }
-
 
     override fun onGuiClosed() {
         super.onGuiClosed()
         Keyboard.enableRepeatEvents(false)
         Config.save()
-
         isDraggingContentScrollbar = false
-
-        tabs.forEach { tab ->
-            tab.components.forEach { comp ->
-                if (comp is Textfield) comp.setFocused(false)
-                if (comp is Dropdown) comp.close()
-            }
-        }
+        tabs.forEach { tab -> tab.components.forEach { comp -> if (comp is Textfield) comp.setFocused(false); if (comp is Dropdown) comp.close() } }
         openDropdown = null
     }
 
     override fun doesGuiPauseGame(): Boolean = false
 
     private fun startScissor(x: Int, y: Int, width: Int, height: Int) {
-        if (width <= 0 || height <= 0) {
-            return
-        }
-        val sr = ScaledResolution(mc)
-        val scale = sr.scaleFactor
+        if (width <= 0 || height <= 0) return
+        val sr = ScaledResolution(mc); val scale = sr.scaleFactor
         GL11.glEnable(GL11.GL_SCISSOR_TEST)
-        GL11.glScissor(
-            (x * scale),
-            ((sr.scaledHeight - (y + height)) * scale),
-            (width * scale),
-            (height * scale)
-        )
+        GL11.glScissor((x * scale), ((sr.scaledHeight - (y + height)) * scale), (width * scale), (height * scale))
     }
 
     private fun stopScissor() {

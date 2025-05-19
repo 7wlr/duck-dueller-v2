@@ -18,24 +18,41 @@ object Config {
 
     enum class SumoStrafeIntensity {
         LIGHT, MEDIUM, HARD;
+        companion object {
+            private val valuesArray = values()
+            fun fromOrdinal(ordinal: Int): SumoStrafeIntensity = valuesArray.getOrElse(ordinal) { MEDIUM }
+            val options: List<String> = valuesArray.map { it.name.lowercase().replaceFirstChar(Char::titlecase) }
+        }
+    }
+
+    enum class LobbyMovementType(val displayName: String) {
+        RANDOM_MOVES("Random"),
+        SUMO("Random Movements"),
+        STRAFE_WALK("Strafe walk"),
+        WALKER("Walker"),
+        SLOW_DRIFT("Shift walk"),
+        FAST_FORWARD("Sprint forward");
 
         companion object {
             private val valuesArray = values()
 
-            fun fromOrdinal(ordinal: Int): SumoStrafeIntensity {
-                return if (ordinal >= 0 && ordinal < valuesArray.size) {
-                    valuesArray[ordinal]
-                } else {
-                    MEDIUM
-                }
+            fun fromOrdinal(ordinal: Int): LobbyMovementType =
+                valuesArray.getOrElse(ordinal) { RANDOM_MOVES }
+
+            val options: List<String> = valuesArray.map { it.displayName }
+
+            fun fromDisplayName(displayName: String): LobbyMovementType {
+                return valuesArray.firstOrNull { it.displayName == displayName } ?: RANDOM_MOVES
             }
-            val options: List<String> = valuesArray.map { intensity ->
-                intensity.name.lowercase().replaceFirstChar { char ->
-                    if (char.isLowerCase()) char.titlecase() else char.toString()
-                }
+
+            fun getActualRandom(): LobbyMovementType {
+                return valuesArray
+                    .filter { it != RANDOM_MOVES }
+                    .random()
             }
         }
     }
+
 
     val boostingBotInstances: List<BoostingBotBase> = listOf(
         SumoBoost(), BlitzBoost(), BoxingBoost(), ClassicBoost(), OPBoost(),
@@ -57,6 +74,15 @@ object Config {
     var currentBot = 0
         private set
     var lobbyMovement = true
+        set(value) {
+            if (field != value) {
+                field = value
+                save()
+            }
+        }
+    var selectedLobbyMovementType: LobbyMovementType = LobbyMovementType.RANDOM_MOVES
+        private set
+
     var disableChatMessages = false
     var throwAfterGames = 0
     var disconnectAfterGames = 0
@@ -145,7 +171,9 @@ object Config {
     private val configFile = File(wlr.configLocation)
 
     private data class ConfigData(
-        var currentBot: Int, var lobbyMovement: Boolean, var disableChatMessages: Boolean,
+        var currentBot: Int, var lobbyMovement: Boolean,
+        var selectedLobbyMovementTypeOrdinal: Int?,
+        var disableChatMessages: Boolean,
         var throwAfterGames: Int, var disconnectAfterGames: Int, var disconnectAfterMinutes: Int,
         var enableBoostingMode: Boolean, var selectedBoostingBotIndex: Int, var boostingRequeueDelay: Int,
         var enableCustomCamera: Boolean, var cameraOffsetX: Float, var cameraOffsetY: Float,
@@ -177,6 +205,7 @@ object Config {
 
                 currentBot = data.currentBot.coerceIn(minRegularBotIndex, maxRegularBotIndex)
                 lobbyMovement = data.lobbyMovement
+                selectedLobbyMovementType = LobbyMovementType.fromOrdinal(data.selectedLobbyMovementTypeOrdinal ?: LobbyMovementType.RANDOM_MOVES.ordinal)
                 disableChatMessages = data.disableChatMessages
                 throwAfterGames = data.throwAfterGames.coerceIn(0, 1000)
                 disconnectAfterGames = data.disconnectAfterGames.coerceIn(0, 10000)
@@ -250,6 +279,7 @@ object Config {
     private fun resetToDefaultsAndSave() {
         currentBot = 0
         lobbyMovement = true
+        selectedLobbyMovementType = LobbyMovementType.RANDOM_MOVES
         disableChatMessages = false
         throwAfterGames = 0
         disconnectAfterGames = 0
@@ -304,7 +334,9 @@ object Config {
         try {
             configFile.parentFile?.mkdirs()
             val data = ConfigData(
-                currentBot, lobbyMovement, disableChatMessages, throwAfterGames, disconnectAfterGames,
+                currentBot, lobbyMovement,
+                selectedLobbyMovementType.ordinal,
+                disableChatMessages, throwAfterGames, disconnectAfterGames,
                 disconnectAfterMinutes, enableBoostingMode, selectedBoostingBotIndex, boostingRequeueDelay,
                 enableCustomCamera, cameraOffsetX, cameraOffsetY, cameraOffsetZ, cameraPitch, cameraYaw,
                 enableCameraZoom, cameraZoomFovValue,
@@ -322,6 +354,21 @@ object Config {
             System.err.println("Error saving WLR config: ${e.message}")
         }
     }
+
+    fun setSelectedLobbyMovementType(type: LobbyMovementType) {
+        if (selectedLobbyMovementType != type) {
+            selectedLobbyMovementType = type
+            save()
+        }
+    }
+    fun setSelectedLobbyMovementType(index: Int) {
+        val type = LobbyMovementType.fromOrdinal(index)
+        if (selectedLobbyMovementType != type) {
+            selectedLobbyMovementType = type
+            save()
+        }
+    }
+
 
     fun setCurrentBot(newBotIndex: Int) {
         val clampedIndex = newBotIndex.coerceIn(minRegularBotIndex, maxRegularBotIndex)
