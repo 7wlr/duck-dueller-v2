@@ -1,14 +1,14 @@
 [
     {
-        "modid": "keystrokes",
-        "name": "KeystrokesMod",
-        "description": "Shows your keystrokes ingame. | Updated and modified by spiderfrog | V5 by Yario & Extazz | Ported by OFP.",
-        "version": "KMV5",
-        "url": "https://www.youtube.com/ofpmedia",
+        "modid": "wlr",
+        "name": "WLR",
+        "description": "Hypixel duels bot",
+        "version": "1.5",
+        "url": "https://www.youtube.com/watch?v=65CZOCKplGc",
         "updateUrl": "",
-        "authorList": ["OFP", "Fyu", "spiderfrog", "Yario & Extazz"],
-        "credits": "OFP, Fyu, spiderfrog, Yario & Extazz, 7wlr",
-        "logoFile": "",
+        "authorList": ["7wlr"],
+        "credits": "",
+        "logoFile": "assets/wlr/textures/gui/logo.png",
         "screenshots": [],
         "dependencies": []
     }
