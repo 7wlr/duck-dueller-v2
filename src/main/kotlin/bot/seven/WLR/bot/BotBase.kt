@@ -517,7 +517,7 @@ open class BotBase(val queueCommand: String, val quickRefresh: Int = 10000) {
                 gameStart()
             }
 
-            if (unformatted.contains("Accuracy") && !calledGameEnd && !unformatted.contains(":")) {
+            if (unformatted.contains("Accuracy") && !calledGameEnd) {
                 calledGameEnd = true
                 gameEnd()
             }
