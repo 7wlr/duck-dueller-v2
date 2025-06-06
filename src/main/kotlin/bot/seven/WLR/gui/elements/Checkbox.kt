@@ -1,6 +1,12 @@
 package bot.seven.WLR.gui.elements
 
 import bot.seven.WLR.gui.GuiColors
+import net.minecraft.client.Minecraft
+import net.minecraft.client.renderer.GlStateManager
+import org.lwjgl.opengl.GL11
+import java.awt.Color
+import kotlin.math.cos
+import kotlin.math.sin
 
 class Checkbox(
     id: Int, x: Int, y: Int,
@@ -38,28 +44,34 @@ class Checkbox(
             }
         }
 
-        GuiDrawingUtils.drawRoundedRectDropShadow(
-            this.x.toFloat(), this.y.toFloat(),
-            width.toFloat(), height.toFloat(),
+        drawRoundedRectUsingGL(
+            this.x.toFloat() + SHADOW_OFFSET_X / 2f,
+            this.y.toFloat() + SHADOW_OFFSET_Y / 2f,
+            width.toFloat(),
+            height.toFloat(),
             cornerRadius,
-            GuiColors.SUBTLE_SHADOW_COLOR,
-            SHADOW_OFFSET_X / 2f, SHADOW_OFFSET_Y / 2f
+            GuiColors.SUBTLE_SHADOW_COLOR
         )
 
-        GuiDrawingUtils.drawModernRoundedRect(
+        val borderThickness = MODERN_BORDER_THICKNESS.toFloat()
+
+        drawRoundedRectUsingGL(
             this.x.toFloat(), this.y.toFloat(),
             width.toFloat(), height.toFloat(),
             cornerRadius,
-            currentBgColor,
-            currentBorderColor,
-            GuiColors.TRANSPARENT_TEXT_PRIMARY_VERY_LIGHT,
-            GuiColors.TRANSPARENT_BLACK_VERY_LIGHT,
-            MODERN_BORDER_THICKNESS
+            currentBorderColor
+        )
+
+        drawRoundedRectUsingGL(
+            this.x.toFloat() + borderThickness, this.y.toFloat() + borderThickness,
+            width.toFloat() - borderThickness * 2, height.toFloat() - borderThickness * 2,
+            (cornerRadius - borderThickness).coerceAtLeast(0f),
+            currentBgColor
         )
 
         if (isChecked) {
             val inset = (width * checkmarkInsetRatio).toInt().coerceAtLeast(1)
-            GuiDrawingUtils.drawRoundedRect(
+            drawRoundedRectUsingGL(
                 (this.x + inset).toFloat(), (this.y + inset).toFloat(),
                 (width - 2 * inset).toFloat(), (height - 2 * inset).toFloat(),
                 1f,
@@ -93,5 +105,46 @@ class Checkbox(
             }
         }
         return false
+    }
+
+    /**
+     * Corrected drawing function that cooperates with Minecraft's GlStateManager.
+     */
+    private fun drawRoundedRectUsingGL(x: Float, y: Float, width: Float, height: Float, radius: Float, colorInt: Int) {
+        GlStateManager.enableBlend()
+        GlStateManager.disableTexture2D()
+        GlStateManager.disableCull()
+        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO)
+        val awtColor = Color(colorInt, true)
+        GlStateManager.color(
+            awtColor.red / 255.0f,
+            awtColor.green / 255.0f,
+            awtColor.blue / 255.0f,
+            awtColor.alpha / 255.0f
+        )
+        GL11.glBegin(GL11.GL_POLYGON)
+        val segments = 20
+        val pi = Math.PI.toFloat()
+        for (i in 0..segments) {
+            val angle = (i.toFloat() / segments) * (pi / 2f)
+            GL11.glVertex2f(x + width - radius + cos(angle) * radius, y + height - radius + sin(angle) * radius)
+        }
+        for (i in 0..segments) {
+            val angle = (pi / 2f) + (i.toFloat() / segments) * (pi / 2f)
+            GL11.glVertex2f(x + radius + cos(angle) * radius, y + height - radius + sin(angle) * radius)
+        }
+        for (i in 0..segments) {
+            val angle = pi + (i.toFloat() / segments) * (pi / 2f)
+            GL11.glVertex2f(x + radius + cos(angle) * radius, y + radius + sin(angle) * radius)
+        }
+        for (i in 0..segments) {
+            val angle = (1.5f * pi) + (i.toFloat() / segments) * (pi / 2f)
+            GL11.glVertex2f(x + width - radius + cos(angle) * radius, y + radius + sin(angle) * radius)
+        }
+        GL11.glEnd()
+        GlStateManager.enableCull()
+        GlStateManager.enableTexture2D()
+        GlStateManager.disableBlend()
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f)
     }
 }

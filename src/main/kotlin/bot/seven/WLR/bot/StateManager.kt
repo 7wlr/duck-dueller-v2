@@ -1,5 +1,6 @@
 package bot.seven.WLR.bot
 
+import bot.seven.WLR.utils.ChatUtils
 import bot.seven.WLR.wlr
 import net.minecraftforge.client.event.ClientChatReceivedEvent
 import net.minecraftforge.event.entity.EntityJoinWorldEvent
@@ -30,7 +31,7 @@ object StateManager {
         } else if (unformatted.contains("Opponent:")) {
             state = States.PLAYING
             gameStartedAt = System.currentTimeMillis()
-        } else if (unformatted.contains("Accuracy")) {
+        } else if (unformatted.contains("Accuracy") && !unformatted.contains(":")) {
             state = States.GAME
             gameFull = false
             lastGameDuration = System.currentTimeMillis() - gameStartedAt

@@ -12,6 +12,12 @@ object RandomUtils {
      * @return int
      */
     fun randomIntInRange(min: Int, max: Int): Int {
+        if (min > max) {
+            return max
+        }
+        if (min == max) {
+            return min
+        }
         return ThreadLocalRandom.current().nextInt(min, max + 1)
     }
 
@@ -22,8 +28,17 @@ object RandomUtils {
      * @return double
      */
     fun randomDoubleInRange(min: Double, max: Double): Double {
-        val r = Random()
-        return min + (max - min) * r.nextDouble()
+        if (min > max) {
+            return max
+        }
+        if (min == max) {
+            return min
+        }
+        return min + (max - min) * Random().nextDouble()
+    }
+
+    fun randomDouble(): Double {
+        return Random().nextDouble()
     }
 
     /**
@@ -31,8 +46,7 @@ object RandomUtils {
      * @return bool
      */
     fun randomBool(): Boolean {
-        val r = Random()
-        return r.nextBoolean()
+        return Random().nextBoolean()
     }
 
 }

@@ -2,9 +2,13 @@ package bot.seven.WLR.gui.elements
 
 import bot.seven.WLR.gui.GuiColors
 import net.minecraft.client.gui.ScaledResolution
+import net.minecraft.client.renderer.GlStateManager
 import org.lwjgl.opengl.GL11
+import java.awt.Color
+import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sin
 
 class Dropdown(
     id: Int, x: Int, y: Int, width: Int,
@@ -25,14 +29,13 @@ class Dropdown(
     private val scrollbarWidth = 10
     private var needsScrollbar: Boolean = false
     private var lastMouseYForScrollDrag: Int = 0
-
-    private val cornerRadius = MODERN_CORNER_RADIUS
+    private val cornerRadius = MODERN_CORNER_RADIUS.toFloat()
     private val listCornerRadius = 3f
     private val textPaddingX = MODERN_ELEMENT_PADDING_X
     private val textPaddingY = (this.height - fontRenderer.FONT_HEIGHT) / 2 + 1
 
     init {
-        val idx = if (options.isEmpty()) -1 else initialSelectedIndex.coerceIn(0, options.size -1)
+        val idx = if (options.isEmpty()) -1 else initialSelectedIndex.coerceIn(0, options.size - 1)
         setSelected(idx, false)
     }
 
@@ -78,19 +81,20 @@ class Dropdown(
             }
         }
 
-        GuiDrawingUtils.drawRoundedRectDropShadow(
-            x.toFloat(), y.toFloat(), width.toFloat(), height.toFloat(), cornerRadius,
-            GuiColors.SUBTLE_SHADOW_COLOR,
-            SHADOW_OFFSET_X, SHADOW_OFFSET_Y
+        val borderThickness = MODERN_BORDER_THICKNESS.toFloat()
+
+        drawRoundedRectUsingGL(
+            x.toFloat() + SHADOW_OFFSET_X, y.toFloat() + SHADOW_OFFSET_Y,
+            width.toFloat(), height.toFloat(),
+            cornerRadius, GuiColors.SUBTLE_SHADOW_COLOR
         )
 
-        GuiDrawingUtils.drawModernRoundedRect(
-            x.toFloat(), y.toFloat(), width.toFloat(), height.toFloat(), cornerRadius,
-            mainBoxBg,
-            mainBoxBorder,
-            GuiColors.TRANSPARENT_TEXT_PRIMARY_VERY_LIGHT,
-            GuiColors.TRANSPARENT_BLACK_VERY_LIGHT,
-            MODERN_BORDER_THICKNESS
+        drawRoundedRectUsingGL(x.toFloat(), y.toFloat(), width.toFloat(), height.toFloat(), cornerRadius, mainBoxBorder)
+
+        drawRoundedRectUsingGL(
+            x + borderThickness, y + borderThickness,
+            width - borderThickness * 2, height - borderThickness * 2,
+            (cornerRadius - borderThickness).coerceAtLeast(0f), mainBoxBg
         )
 
         val selectedText = getSelectedOption() ?: "Select..."
@@ -106,29 +110,21 @@ class Dropdown(
             needsScrollbar = totalContentH > listVisH
             val listTopY = this.y + this.height
             val listDrawWidth = this.width
-            val actualListBorderThickness = MODERN_BORDER_THICKNESS
 
-            GuiDrawingUtils.drawRoundedRectDropShadow(
-                x.toFloat(), listTopY.toFloat(),
+            drawRoundedRectUsingGL(
+                x.toFloat() + SHADOW_OFFSET_X, listTopY.toFloat() + SHADOW_OFFSET_Y,
                 width.toFloat(), listVisH.toFloat(),
-                listCornerRadius,
-                GuiColors.SUBTLE_SHADOW_COLOR,
-                SHADOW_OFFSET_X, SHADOW_OFFSET_Y,
-                1f
+                listCornerRadius, GuiColors.SUBTLE_SHADOW_COLOR
             )
-            GuiDrawingUtils.drawModernRoundedRect(
-                x.toFloat(), listTopY.toFloat(),
-                width.toFloat(), listVisH.toFloat(),
-                listCornerRadius,
-                GuiColors.DROPDOWN_BACKGROUND_OPEN,
-                GuiColors.MODERN_UI_ELEMENT_BORDER,
-                GuiColors.TRANSPARENT_TEXT_PRIMARY_VERY_LIGHT,
-                GuiColors.TRANSPARENT_BLACK_VERY_LIGHT,
-                actualListBorderThickness
+            drawRoundedRectUsingGL(x.toFloat(), listTopY.toFloat(), width.toFloat(), listVisH.toFloat(), listCornerRadius, GuiColors.MODERN_UI_ELEMENT_BORDER)
+            drawRoundedRectUsingGL(
+                x + borderThickness, listTopY + borderThickness,
+                width - borderThickness * 2, listVisH - borderThickness * 2,
+                (listCornerRadius - borderThickness).coerceAtLeast(0f), GuiColors.DROPDOWN_BACKGROUND_OPEN
             )
 
             val sr = ScaledResolution(mc)
-            val borderIntScissor = actualListBorderThickness.toInt()
+            val borderIntScissor = borderThickness.toInt()
             val scissorListDrawWidth = if (needsScrollbar) listDrawWidth - scrollbarWidth else listDrawWidth
 
             GL11.glEnable(GL11.GL_SCISSOR_TEST)
@@ -158,7 +154,7 @@ class Dropdown(
                 }
 
                 if (optBg != 0) {
-                    GuiDrawingUtils.drawRoundedRect(
+                    drawRoundedRectUsingGL(
                         (x + borderIntScissor + 1f), optTopScreen.toFloat(),
                         (scissorListDrawWidth - 2 * borderIntScissor - 2f), optionHeight.toFloat(),
                         1f,
@@ -173,7 +169,7 @@ class Dropdown(
                 maxScrollYOptions = max(0f, (totalContentH - listVisH).toFloat())
                 scrollYOptions = scrollYOptions.coerceIn(0f, maxScrollYOptions)
                 val sbX = x + width - scrollbarWidth - borderIntScissor
-                GuiDrawingUtils.drawRoundedRect(
+                drawRoundedRectUsingGL(
                     sbX.toFloat(),
                     (listTopY + borderIntScissor).toFloat(),
                     scrollbarWidth.toFloat(),
@@ -190,7 +186,7 @@ class Dropdown(
 
                     val thumbHover = mouseX >= sbX && mouseX < sbX + scrollbarWidth &&
                             mouseY >= thumbActualY && mouseY < thumbActualY + thumbH
-                    GuiDrawingUtils.drawRoundedRect(
+                    drawRoundedRectUsingGL(
                         (sbX + 1f),
                         thumbActualY,
                         (scrollbarWidth - 2f),
@@ -298,9 +294,6 @@ class Dropdown(
             val trackDrawableHeight = getListVisibleHeight() - 2 * MODERN_BORDER_THICKNESS.toInt()
             if (trackDrawableHeight <= 0) return
 
-            val scrollableDistance = getTotalOptionsContentHeight() - getListVisibleHeight()
-            if (scrollableDistance <= 0) return
-
             val thumbHRatio = (getListVisibleHeight().toFloat() / getTotalOptionsContentHeight().toFloat()).coerceIn(0.1f, 1f)
             val thumbH = max(15, (getListVisibleHeight() * thumbHRatio).toInt())
             val draggableTrackSpace = trackDrawableHeight - thumbH
@@ -340,5 +333,46 @@ class Dropdown(
             isOpen = false
             isDraggingScrollbar = false
         }
+    }
+
+    /**
+     * Corrected drawing function that cooperates with Minecraft's GlStateManager.
+     */
+    private fun drawRoundedRectUsingGL(x: Float, y: Float, width: Float, height: Float, radius: Float, colorInt: Int) {
+        GlStateManager.enableBlend()
+        GlStateManager.disableTexture2D()
+        GlStateManager.disableCull()
+        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO)
+        val awtColor = Color(colorInt, true)
+        GlStateManager.color(
+            awtColor.red / 255.0f,
+            awtColor.green / 255.0f,
+            awtColor.blue / 255.0f,
+            awtColor.alpha / 255.0f
+        )
+        GL11.glBegin(GL11.GL_POLYGON)
+        val segments = 20
+        val pi = Math.PI.toFloat()
+        for (i in 0..segments) {
+            val angle = (i.toFloat() / segments) * (pi / 2f)
+            GL11.glVertex2f(x + width - radius + cos(angle) * radius, y + height - radius + sin(angle) * radius)
+        }
+        for (i in 0..segments) {
+            val angle = (pi / 2f) + (i.toFloat() / segments) * (pi / 2f)
+            GL11.glVertex2f(x + radius + cos(angle) * radius, y + height - radius + sin(angle) * radius)
+        }
+        for (i in 0..segments) {
+            val angle = pi + (i.toFloat() / segments) * (pi / 2f)
+            GL11.glVertex2f(x + radius + cos(angle) * radius, y + radius + sin(angle) * radius)
+        }
+        for (i in 0..segments) {
+            val angle = (1.5f * pi) + (i.toFloat() / segments) * (pi / 2f)
+            GL11.glVertex2f(x + width - radius + cos(angle) * radius, y + radius + sin(angle) * radius)
+        }
+        GL11.glEnd()
+        GlStateManager.enableCull()
+        GlStateManager.enableTexture2D()
+        GlStateManager.disableBlend()
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f)
     }
 }

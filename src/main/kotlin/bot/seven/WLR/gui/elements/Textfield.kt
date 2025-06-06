@@ -2,6 +2,11 @@ package bot.seven.WLR.gui.elements
 
 import bot.seven.WLR.gui.GuiColors
 import net.minecraft.client.gui.GuiTextField
+import net.minecraft.client.renderer.GlStateManager
+import org.lwjgl.opengl.GL11
+import java.awt.Color
+import kotlin.math.cos
+import kotlin.math.sin
 
 class Textfield(
     id: Int, x: Int, y: Int, width: Int,
@@ -19,7 +24,7 @@ class Textfield(
     val textField: GuiTextField
     private var lastText: String = initialText
     private var hasInitialFocusCallbackFired = false
-    private val cornerRadius = MODERN_CORNER_RADIUS
+    private val cornerRadius = MODERN_CORNER_RADIUS.toFloat()
 
     init {
         textField = GuiTextField(
@@ -56,15 +61,12 @@ class Textfield(
         if (!visible) return
 
         textField.setEnabled(this.enabled)
-
         textField.xPosition = this.x + horizontalTextPadding
         textField.yPosition = this.y + verticalTextPadding
         textField.width = this.width - (2 * horizontalTextPadding)
 
         val currentBgColor: Int
         val currentOuterBorderColor: Int
-        val innerShadowEffect = GuiColors.TRANSPARENT_BLACK_LIGHT
-        val innerHighlightEffect = GuiColors.TRANSPARENT_TEXT_PRIMARY_VERY_LIGHT
 
         when {
             !enabled -> {
@@ -82,26 +84,29 @@ class Textfield(
         }
 
         if (textField.isFocused && enabled) {
-            GuiDrawingUtils.drawRoundedRectDropShadow(
-                x.toFloat(), y.toFloat(),
-                width.toFloat(), height.toFloat(),
-                cornerRadius,
-                GuiColors.PRIMARY_RED_BRIGHT_GLOW_EFFECT,
-                0f, SHADOW_OFFSET_Y, 1f
+            drawRoundedRectUsingGL(
+                x.toFloat() - 1f, y.toFloat() - 1f,
+                width.toFloat() + 2f, height.toFloat() + 2f,
+                cornerRadius + 1f,
+                GuiColors.PRIMARY_RED_BRIGHT_GLOW_EFFECT
             )
         }
 
-        GuiDrawingUtils.drawModernRoundedRect(
+        val borderThickness = MODERN_BORDER_THICKNESS.toFloat()
+
+        drawRoundedRectUsingGL(
             x.toFloat(), y.toFloat(),
             width.toFloat(), height.toFloat(),
             cornerRadius,
-            currentBgColor,
-            currentOuterBorderColor,
-            if (textField.isFocused || !enabled) 0 else innerHighlightEffect,
-            if (textField.isFocused || !enabled) 0 else innerShadowEffect,
-            MODERN_BORDER_THICKNESS
+            currentOuterBorderColor
         )
 
+        drawRoundedRectUsingGL(
+            x.toFloat() + borderThickness, y.toFloat() + borderThickness,
+            width.toFloat() - 2 * borderThickness, height.toFloat() - 2 * borderThickness,
+            (cornerRadius - borderThickness).coerceAtLeast(0f),
+            currentBgColor
+        )
         textField.setTextColor(if (enabled) GuiColors.TEXTFIELD_TEXT else GuiColors.TEXT_DISABLED)
         textField.drawTextBox()
 
@@ -115,15 +120,12 @@ class Textfield(
         }
 
         val wasFocused = textField.isFocused
-        var clickedOnThisComponent = false
+        val clickedOnThisComponent = mouseX >= this.x && mouseX < this.x + this.width &&
+                mouseY >= this.y && mouseY < this.y + this.height
 
-        if (mouseX >= this.x && mouseX < this.x + this.width &&
-            mouseY >= this.y && mouseY < this.y + this.height) {
-            clickedOnThisComponent = true
+        if (clickedOnThisComponent) {
             if (enabled) {
                 textField.mouseClicked(mouseX, mouseY, mouseButton)
-            } else {
-                if (textField.isFocused) setFocused(false)
             }
         } else {
             if (textField.isFocused) {
@@ -135,31 +137,24 @@ class Textfield(
             onFocusChanged(textField.isFocused)
         }
 
-        return enabled && clickedOnThisComponent && textField.isFocused
+        return enabled && clickedOnThisComponent
     }
 
     override fun keyTyped(typedChar: Char, keyCode: Int): Boolean {
         if (!enabled || !visible || !textField.isFocused) return false
 
         val previousText = textField.text
-        val prevCursorPos = textField.cursorPosition
-        val prevSelectionEnd = textField.selectionEnd
+        val handled = textField.textboxKeyTyped(typedChar, keyCode)
 
-        val handledByVanillaField = textField.textboxKeyTyped(typedChar, keyCode)
-
-        if (handledByVanillaField) {
-            if (textField.text != previousText) {
-                if (validator(textField.text)) {
-                    onTextChanged(textField.text)
-                    lastText = textField.text
-                } else {
-                    textField.text = previousText
-                    textField.setCursorPosition(prevCursorPos)
-                    textField.setSelectionPos(prevSelectionEnd)
-                }
+        if (handled && textField.text != previousText) {
+            if (validator(textField.text)) {
+                onTextChanged(textField.text)
+                lastText = textField.text
+            } else {
+                textField.text = previousText
             }
         }
-        return handledByVanillaField
+        return handled
     }
 
     fun setFocused(isFocused: Boolean) {
@@ -178,5 +173,46 @@ class Textfield(
         if (textField.isFocused) {
             setFocused(false)
         }
+    }
+
+    /**
+     * Corrected drawing function that cooperates with Minecraft's GlStateManager.
+     */
+    private fun drawRoundedRectUsingGL(x: Float, y: Float, width: Float, height: Float, radius: Float, colorInt: Int) {
+        GlStateManager.enableBlend()
+        GlStateManager.disableTexture2D()
+        GlStateManager.disableCull()
+        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO)
+        val awtColor = Color(colorInt, true)
+        GlStateManager.color(
+            awtColor.red / 255.0f,
+            awtColor.green / 255.0f,
+            awtColor.blue / 255.0f,
+            awtColor.alpha / 255.0f
+        )
+        GL11.glBegin(GL11.GL_POLYGON)
+        val segments = 20
+        val pi = Math.PI.toFloat()
+        for (i in 0..segments) {
+            val angle = (i.toFloat() / segments) * (pi / 2f)
+            GL11.glVertex2f(x + width - radius + cos(angle) * radius, y + height - radius + sin(angle) * radius)
+        }
+        for (i in 0..segments) {
+            val angle = (pi / 2f) + (i.toFloat() / segments) * (pi / 2f)
+            GL11.glVertex2f(x + radius + cos(angle) * radius, y + height - radius + sin(angle) * radius)
+        }
+        for (i in 0..segments) {
+            val angle = pi + (i.toFloat() / segments) * (pi / 2f)
+            GL11.glVertex2f(x + radius + cos(angle) * radius, y + radius + sin(angle) * radius)
+        }
+        for (i in 0..segments) {
+            val angle = (1.5f * pi) + (i.toFloat() / segments) * (pi / 2f)
+            GL11.glVertex2f(x + width - radius + cos(angle) * radius, y + radius + sin(angle) * radius)
+        }
+        GL11.glEnd()
+        GlStateManager.enableCull()
+        GlStateManager.enableTexture2D()
+        GlStateManager.disableBlend()
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f)
     }
 }

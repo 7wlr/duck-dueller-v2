@@ -3,6 +3,11 @@ package bot.seven.WLR.gui.elements
 import bot.seven.WLR.gui.GuiColors
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.FontRenderer
+import net.minecraft.client.renderer.GlStateManager
+import org.lwjgl.opengl.GL11
+import java.awt.Color
+import kotlin.math.cos
+import kotlin.math.sin
 
 class Button(
     id: Int,
@@ -14,13 +19,11 @@ class Button(
     val onClick: () -> Unit
 ) : GuiComponentBase(id, x, y, width, height, buttonText) {
 
-    private val cornerRadius = MODERN_CORNER_RADIUS
+    private val cornerRadius = MODERN_CORNER_RADIUS.toFloat()
 
     override fun drawComponent(mouseX: Int, mouseY: Int, partialTicks: Float) {
         super.drawComponent(mouseX, mouseY, partialTicks)
         if (!visible) return
-
-        val actualDrawableHeight = this.height
 
         val currentBgColor: Int
         val currentTextColor: Int
@@ -46,27 +49,27 @@ class Button(
             }
         }
 
+        val borderThickness = MODERN_BORDER_THICKNESS.toFloat()
+
         if (glowColor != 0) {
-            GuiDrawingUtils.drawRoundedRect(
+            drawRoundedRectUsingGL(
                 x.toFloat() - 1f, y.toFloat() - 1f,
-                width.toFloat() + 2f, actualDrawableHeight.toFloat() + 2f,
+                width.toFloat() + 2f, height.toFloat() + 2f,
                 cornerRadius + 1f,
                 glowColor
             )
         }
 
-        GuiDrawingUtils.drawModernRoundedRect(
-            x.toFloat(), y.toFloat(),
-            width.toFloat(), actualDrawableHeight.toFloat(),
-            cornerRadius,
-            currentBgColor,
-            currentBorderColor,
-            GuiColors.TRANSPARENT_RED_VERY_LIGHT_HIGHLIGHT,
-            GuiColors.TRANSPARENT_BLACK_VERY_LIGHT,
-            MODERN_BORDER_THICKNESS
+        drawRoundedRectUsingGL(x.toFloat(), y.toFloat(), width.toFloat(), height.toFloat(), cornerRadius, currentBorderColor)
+
+        drawRoundedRectUsingGL(
+            x.toFloat() + borderThickness, y.toFloat() + borderThickness,
+            width.toFloat() - borderThickness * 2, height.toFloat() - borderThickness * 2,
+            (cornerRadius - borderThickness).coerceAtLeast(0f),
+            currentBgColor
         )
 
-        val textY = y + (actualDrawableHeight - fontRenderer.FONT_HEIGHT) / 2 + 1
+        val textY = y + (height - fontRenderer.FONT_HEIGHT) / 2 + 1
         drawCenteredString(
             Minecraft.getMinecraft().fontRendererObj,
             label,
@@ -89,5 +92,46 @@ class Button(
 
     private fun drawCenteredString(fontRenderer: FontRenderer, text: String, x: Int, y: Int, color: Int) {
         fontRenderer.drawString(text, x - fontRenderer.getStringWidth(text) / 2, y, color)
+    }
+
+    /**
+     * Corrected drawing function that cooperates with Minecraft's GlStateManager.
+     */
+    private fun drawRoundedRectUsingGL(x: Float, y: Float, width: Float, height: Float, radius: Float, colorInt: Int) {
+        GlStateManager.enableBlend()
+        GlStateManager.disableTexture2D()
+        GlStateManager.disableCull()
+        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO)
+        val awtColor = Color(colorInt, true)
+        GlStateManager.color(
+            awtColor.red / 255.0f,
+            awtColor.green / 255.0f,
+            awtColor.blue / 255.0f,
+            awtColor.alpha / 255.0f
+        )
+        GL11.glBegin(GL11.GL_POLYGON)
+        val segments = 20
+        val pi = Math.PI.toFloat()
+        for (i in 0..segments) {
+            val angle = (i.toFloat() / segments) * (pi / 2f)
+            GL11.glVertex2f(x + width - radius + cos(angle) * radius, y + height - radius + sin(angle) * radius)
+        }
+        for (i in 0..segments) {
+            val angle = (pi / 2f) + (i.toFloat() / segments) * (pi / 2f)
+            GL11.glVertex2f(x + radius + cos(angle) * radius, y + height - radius + sin(angle) * radius)
+        }
+        for (i in 0..segments) {
+            val angle = pi + (i.toFloat() / segments) * (pi / 2f)
+            GL11.glVertex2f(x + radius + cos(angle) * radius, y + radius + sin(angle) * radius)
+        }
+        for (i in 0..segments) {
+            val angle = (1.5f * pi) + (i.toFloat() / segments) * (pi / 2f)
+            GL11.glVertex2f(x + width - radius + cos(angle) * radius, y + radius + sin(angle) * radius)
+        }
+        GL11.glEnd()
+        GlStateManager.enableCull()
+        GlStateManager.enableTexture2D()
+        GlStateManager.disableBlend()
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f)
     }
 }

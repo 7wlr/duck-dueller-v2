@@ -11,7 +11,7 @@ import net.minecraft.util.Vec3
 
 object WorldUtils {
 
-    fun blockInFront(player: EntityPlayer, distance: Float, yMod: Float = 0f): Block { // yMod = 0 -> feet, 1 -> 1 above feet etc
+    fun blockInFront(player: EntityPlayer, distance: Float, yMod: Float = 0f): Block {
         val vec = Vec3(player.lookVec.xCoord * distance, 0.0, player.lookVec.zCoord * distance)
         return wlr.mc.theWorld.getBlockState(player.position.add(vec.xCoord, -0.2 + yMod, vec.zCoord)).block
     }
@@ -35,12 +35,10 @@ object WorldUtils {
 
     fun airOnLeft(player: EntityPlayer, distance: Float): Boolean {
         return airCheck(player, player.position, distance, EntityUtils.get2dLookVec(player).rotateYaw(90f))
-        //return circleAirCheck(player.position, distance, EntityUtils.get2dLookVec(player).rotateYaw(90f), 2, 2)
     }
 
     fun airOnRight(player: EntityPlayer, distance: Float): Boolean {
         return airCheck(player, player.position, distance, EntityUtils.get2dLookVec(player).rotateYaw(-90f))
-        //return circleAirCheck(player.position, distance, EntityUtils.get2dLookVec(player).rotateYaw(-90f), 2, 2)
     }
 
     /**

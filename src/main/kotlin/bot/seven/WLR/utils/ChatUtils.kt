@@ -31,11 +31,11 @@ object ChatUtils {
     }
 
     fun info(message: String) {
-        sendChatMessage("${EnumChatFormatting.DARK_PURPLE}[${EnumChatFormatting.LIGHT_PURPLE}${EnumChatFormatting.BOLD}WLR${EnumChatFormatting.RESET}${EnumChatFormatting.DARK_PURPLE}] ${EnumChatFormatting.WHITE}$message")
+        sendChatMessage("${EnumChatFormatting.DARK_RED}[${EnumChatFormatting.RED}${EnumChatFormatting.BOLD}WLR${EnumChatFormatting.RESET}${EnumChatFormatting.DARK_RED}] ${EnumChatFormatting.WHITE}$message")
     }
 
     fun error(message: String) {
-        sendChatMessage("${EnumChatFormatting.DARK_PURPLE}[${EnumChatFormatting.LIGHT_PURPLE}${EnumChatFormatting.BOLD}WLR${EnumChatFormatting.RESET}${EnumChatFormatting.DARK_PURPLE}] ${EnumChatFormatting.RED}$message")
+        sendChatMessage("${EnumChatFormatting.DARK_RED}[${EnumChatFormatting.RED}${EnumChatFormatting.BOLD}WLR${EnumChatFormatting.RESET}${EnumChatFormatting.DARK_RED}] ${EnumChatFormatting.RED}$message")
     }
 
     private fun sendChatMessage(message: String) {
