@@ -10,19 +10,37 @@ object Session {
     var wins = 0
     var losses = 0
     var startTime: Long = System.currentTimeMillis()
+    var bestWinstreak = 0
+    var currentStreak = 0
 
     fun reset() {
         startTime = System.currentTimeMillis()
         wins = 0
         losses = 0
+        bestWinstreak = 0
+        currentStreak = 0
     }
 
     fun addWin() {
         wins++
+        if (currentStreak >= 0) {
+            currentStreak++
+        } else {
+            currentStreak = 1
+        }
+
+        if (currentStreak > bestWinstreak) {
+            bestWinstreak = currentStreak
+        }
     }
 
     fun addLoss() {
         losses++
+        if (currentStreak <= 0) {
+            currentStreak--
+        } else {
+            currentStreak = -1
+        }
     }
 
     fun getUptimeMillis(): Long {
