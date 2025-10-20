@@ -88,7 +88,7 @@ class Textfield(
                 x.toFloat() - 1f, y.toFloat() - 1f,
                 width.toFloat() + 2f, height.toFloat() + 2f,
                 cornerRadius + 1f,
-                GuiColors.PRIMARY_RED_BRIGHT_GLOW_EFFECT
+                GuiColors.PRIMARY_BLUE_BRIGHT_GLOW_EFFECT
             )
         }
 

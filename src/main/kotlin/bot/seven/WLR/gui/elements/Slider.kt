@@ -74,7 +74,7 @@ class Slider(
 
         val filledWidth = currentKnobRenderCenterX - x
         if (filledWidth > 0f) {
-            val filledTrackColor = if (enabled) GuiColors.SLIDER_TRACK_FILLED else GuiColors.PRIMARY_RED_DARK
+            val filledTrackColor = if (enabled) GuiColors.SLIDER_TRACK_FILLED else GuiColors.PRIMARY_BLUE_DARK
             drawRoundedRectUsingGL(
                 x.toFloat(), trackActualY, filledWidth.coerceAtMost(width.toFloat()), trackHeightToUse,
                 trackCornerRadius, filledTrackColor
@@ -88,11 +88,10 @@ class Slider(
                 mouseY >= knobRenderY - knobVisualRadius &&
                 mouseY <= knobRenderY + knobVisualRadius
 
-        // *** THIS IS THE CHANGED PART ***
         val knobColor = when {
-            !enabled -> GuiColors.PRIMARY_RED_DARK // Use a darker red for disabled, matching the track
-            isDragging || isHoveringKnob -> GuiColors.PRIMARY_RED_BRIGHT
-            else -> GuiColors.PRIMARY_RED
+            !enabled -> GuiColors.PRIMARY_BLUE_DARK
+            isDragging || isHoveringKnob -> GuiColors.PRIMARY_BLUE_BRIGHT
+            else -> GuiColors.PRIMARY_BLUE
         }
 
         drawCircleUsingGL(currentKnobRenderCenterX, knobRenderY, knobVisualRadius, knobColor)
@@ -178,22 +177,18 @@ class Slider(
         GL11.glBegin(GL11.GL_POLYGON)
         val segments = 20
         val pi = Math.PI.toFloat()
-        // Bottom-right corner
         for (i in 0..segments) {
             val angle = (i.toFloat() / segments) * (pi / 2f)
             GL11.glVertex2f(x + width - radius + cos(angle) * radius, y + height - radius + sin(angle) * radius)
         }
-        // Bottom-left corner
         for (i in 0..segments) {
             val angle = (pi / 2f) + (i.toFloat() / segments) * (pi / 2f)
             GL11.glVertex2f(x + radius + cos(angle) * radius, y + height - radius + sin(angle) * radius)
         }
-        // Top-left corner
         for (i in 0..segments) {
             val angle = pi + (i.toFloat() / segments) * (pi / 2f)
             GL11.glVertex2f(x + radius + cos(angle) * radius, y + radius + sin(angle) * radius)
         }
-        // Top-right corner
         for (i in 0..segments) {
             val angle = (1.5f * pi) + (i.toFloat() / segments) * (pi / 2f)
             GL11.glVertex2f(x + width - radius + cos(angle) * radius, y + radius + sin(angle) * radius)

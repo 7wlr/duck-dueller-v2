@@ -554,7 +554,7 @@ class ConfigGui : GuiScreen() {
             val textColor = when { isSelected -> GuiColors.TAB_BUTTON_TEXT_ACTIVE; tabHovered -> GuiColors.TAB_BUTTON_TEXT_HOVER; else -> GuiColors.TAB_BUTTON_TEXT_INACTIVE }
 
             drawRoundedRectWithBorderUsingGL(currentTabButtonVisualX.toFloat(), tabButtonVisualY.toFloat(), tabButtonWidth.toFloat(), tabBarButtonHeight.toFloat(), 3f, tabBgColor, GuiColors.TAB_BAR_BORDER, 1f)
-            if (isSelected) Gui.drawRect(currentTabButtonVisualX.toInt() + 3, tabButtonVisualY + tabBarButtonHeight - 2, currentTabButtonVisualX.toInt() + tabButtonWidth - 3, tabButtonVisualY + tabBarButtonHeight - 1, GuiColors.PRIMARY_RED_BRIGHT)
+            if (isSelected) Gui.drawRect(currentTabButtonVisualX.toInt() + 3, tabButtonVisualY + tabBarButtonHeight - 2, currentTabButtonVisualX.toInt() + tabButtonWidth - 3, tabButtonVisualY + tabBarButtonHeight - 1, GuiColors.PRIMARY_BLUE_BRIGHT)
             drawCenteredString(fontRendererObj, tab.name, currentTabButtonVisualX.toInt() + tabButtonWidth / 2, tabButtonVisualY + (tabBarButtonHeight - fontRendererObj.FONT_HEIGHT) / 2, textColor)
             currentTabButtonVisualX += tabButtonWidth + tabButtonSpacing
         }

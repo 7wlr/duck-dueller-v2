@@ -69,11 +69,11 @@ class Dropdown(
             }
             isOpen -> {
                 mainBoxBg = GuiColors.COMPONENT_BACKGROUND
-                mainBoxBorder = GuiColors.PRIMARY_RED_BRIGHT
+                mainBoxBorder = GuiColors.PRIMARY_BLUE_BRIGHT
             }
             this.hovered -> {
                 mainBoxBg = GuiColors.COMPONENT_BACKGROUND_HOVER
-                mainBoxBorder = GuiColors.PRIMARY_RED
+                mainBoxBorder = GuiColors.PRIMARY_BLUE
             }
             else -> {
                 mainBoxBg = GuiColors.COMPONENT_BACKGROUND

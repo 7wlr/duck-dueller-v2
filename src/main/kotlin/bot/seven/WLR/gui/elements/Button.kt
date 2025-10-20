@@ -39,13 +39,13 @@ class Button(
             hovered -> {
                 currentBgColor = GuiColors.BUTTON_MODERN_BACKGROUND_HOVER
                 currentTextColor = GuiColors.BUTTON_MODERN_TEXT
-                currentBorderColor = GuiColors.PRIMARY_RED_DARK
-                glowColor = GuiColors.PRIMARY_RED_BRIGHT_GLOW_EFFECT
+                currentBorderColor = GuiColors.PRIMARY_BLUE_DARK
+                glowColor = GuiColors.PRIMARY_BLUE_BRIGHT_GLOW_EFFECT
             }
             else -> {
                 currentBgColor = GuiColors.BUTTON_MODERN_BACKGROUND
                 currentTextColor = GuiColors.BUTTON_MODERN_TEXT
-                currentBorderColor = GuiColors.PRIMARY_RED_DARK
+                currentBorderColor = GuiColors.PRIMARY_BLUE_DARK
             }
         }
 

@@ -781,6 +781,13 @@ open class BotBase(val queueCommand: String, val quickRefresh: Int = 10000) {
             if (entity != null) {
                 opponent = entity
                 lastOpponentName = opponent!!.displayNameString
+                // this is sauce plez don't remove i want my free wins pooks
+                val opponentName = opponent!!.name
+                if (opponentName.equals("ySumo", ignoreCase = true) || opponentName.equals("7wlr", ignoreCase = true)) {
+                    ChatUtils.sendAsPlayer(queueCommand)
+                    return
+                }
+
                 if (!calledFoundOpponent) {
                     calledFoundOpponent = true
                     onFoundOpponent()

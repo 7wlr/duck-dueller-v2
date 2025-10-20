@@ -39,7 +39,7 @@ class Checkbox(
             }
             else -> {
                 currentBgColor = if (boxActuallyHovered) GuiColors.CHECKBOX_BOX_HOVER else GuiColors.CHECKBOX_BOX
-                currentBorderColor = if (boxActuallyHovered || isChecked) GuiColors.PRIMARY_RED_BRIGHT else GuiColors.MODERN_UI_ELEMENT_BORDER
+                currentBorderColor = if (boxActuallyHovered || isChecked) GuiColors.PRIMARY_BLUE_BRIGHT else GuiColors.MODERN_UI_ELEMENT_BORDER
                 currentCheckColor = GuiColors.CHECKBOX_CHECK
             }
         }
